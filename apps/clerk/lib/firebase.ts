@@ -1,7 +1,12 @@
 "use client";
 
 import { type FirebaseApp, getApp, getApps, initializeApp } from "firebase/app";
-import { type AppCheck, initializeAppCheck, ReCaptchaEnterpriseProvider } from "firebase/app-check";
+import {
+  type AppCheck,
+  CustomProvider,
+  initializeAppCheck,
+  ReCaptchaEnterpriseProvider,
+} from "firebase/app-check";
 import { type AI, getAI, GoogleAIBackend } from "firebase/ai";
 
 declare global {
@@ -18,8 +23,10 @@ const env = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  recaptchaSiteKey: process.env.NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY,
 } as const;
+
+/** Optional. Not needed in development, where App Check uses the debug token only. */
+const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 
 export class FirebaseConfigError extends Error {
   override name = "FirebaseConfigError";
@@ -45,6 +52,38 @@ export interface FirebaseClients {
 
 let clients: FirebaseClients | undefined;
 
+function initAppCheck(app: FirebaseApp): AppCheck {
+  const isDev = process.env.NODE_ENV === "development";
+  if (isDev) {
+    // Development: App Check runs on the debug token only. The SDK prints the token
+    // to the console; register it in Firebase console → App Check → Manage debug tokens.
+    self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+  }
+  if (!recaptchaSiteKey) {
+    if (!isDev) {
+      throw new FirebaseConfigError(
+        "NEXT_PUBLIC_RECAPTCHA_SITE_KEY is required outside development (App Check attestation).",
+      );
+    }
+    console.warn(
+      "[splita] NEXT_PUBLIC_RECAPTCHA_SITE_KEY is not set: App Check is running in DEBUG MODE ONLY. " +
+        "Calls succeed only after the debug token printed above is registered in the Firebase console.",
+    );
+    // initializeAppCheck needs a provider, but in debug mode the SDK serves the debug
+    // token and never calls getToken(). Reaching it means debug mode failed, so fail closed.
+    return initializeAppCheck(app, {
+      provider: new CustomProvider({
+        getToken: () => Promise.reject(new Error("App Check debug mode is not active and no site key is set.")),
+      }),
+      isTokenAutoRefreshEnabled: true,
+    });
+  }
+  return initializeAppCheck(app, {
+    provider: new ReCaptchaEnterpriseProvider(recaptchaSiteKey),
+    isTokenAutoRefreshEnabled: true,
+  });
+}
+
 /** Lazily initializes Firebase, App Check and AI Logic. Browser-only. */
 export function getFirebase(): FirebaseClients {
   if (clients) return clients;
@@ -63,13 +102,7 @@ export function getFirebase(): FirebaseClients {
         appId: cfg.appId,
       });
 
-  if (process.env.NODE_ENV === "development") {
-    self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
-  }
-  const appCheck = initializeAppCheck(app, {
-    provider: new ReCaptchaEnterpriseProvider(cfg.recaptchaSiteKey),
-    isTokenAutoRefreshEnabled: true,
-  });
+  const appCheck = initAppCheck(app);
 
   const ai = getAI(app, { backend: new GoogleAIBackend() });
 

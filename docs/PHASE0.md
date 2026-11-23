@@ -38,8 +38,8 @@ Checked against developer.chrome.com/docs/ai (get-started, prompt-api) and the F
 - [ ] Create a Firebase project.
 - [ ] Register a **Web app**. Copy its config into `apps/clerk/.env.local` (template in `apps/clerk/.env.example`).
 - [ ] **AI Logic**: Firebase console → AI Logic → Get started → choose the **Gemini Developer API**.
-- [ ] **reCAPTCHA Enterprise**: in Google Cloud console → Security → reCAPTCHA, create a **score-based Web key** (not checkbox). Do **not** add `localhost` to its domains. Put the key in `NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY`.
-- [ ] **App Check**: Firebase console → App Check → Apps → your Web app → register **reCAPTCHA Enterprise** with that key.
+- [ ] **App Check (development)**: no site key is needed. With `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` unset, the app runs App Check in **debug mode only** and logs a warning in the console. Register the debug token (next step) and you're done.
+- [ ] *(Later, before production)* Create a **score-based reCAPTCHA Enterprise Web key** (not checkbox; do **not** add `localhost`), register it under App Check → Apps → your Web app, and set `NEXT_PUBLIC_RECAPTCHA_SITE_KEY`. Outside development, `getFirebase()` throws without it (fail-closed).
 - [ ] **Debug token**: run the spike once (`pnpm dev`) and open DevTools. App Check logs `App Check debug token: <uuid>`. Add it under App Check → Apps → ⋮ → **Manage debug tokens**.
 - [ ] Turn on App Check **enforcement** for Firebase AI Logic. Firebase auto-enforced it for AI Logic on Nov 2, 2026, so confirm it shows as enforced.
 - [ ] Enable **Authentication** with the Google and Email/Password providers. Not used yet.
@@ -50,7 +50,7 @@ Checked against developer.chrome.com/docs/ai (get-started, prompt-api) and the F
 
 ```bash
 pnpm install
-cp apps/clerk/.env.example apps/clerk/.env.local   # then fill it in
+cp apps/clerk/.env.example apps/clerk/.env.local   # fill in the Firebase config; the site key can stay empty
 pnpm --filter @splita/clerk dev
 ```
 
@@ -67,5 +67,5 @@ Latency is measured with `performance.now()` around `generateContent()`.
 
 - [ ] ON-DEVICE only → source = on-device
 - [ ] CLOUD only → source = cloud
-- [ ] App Check active (debug token) and calls succeed
+- [ ] App Check active (debug token only, no site key) and calls succeed
 - [ ] LICENSE detected on GitHub; `pnpm build` passes
