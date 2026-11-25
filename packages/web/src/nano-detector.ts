@@ -1,16 +1,19 @@
 import type { DetectorStatus, OptionalDetector, Span } from "@splita/core";
-import { chunkText, locateEntities, parseNanoEntities } from "./nano-parse.js";
+import { chunkText, locateEntities, NANO_RESPONSE_SCHEMA, parseNanoEntities } from "./nano-parse.js";
+import type { PromptOptions } from "./nano-session.js";
 
-/** The slice of Firebase's GenerativeModel the detector needs (mockable in tests). */
-export interface TextModel {
-  generateContent(prompt: string): Promise<{ response: { text(): string } }>;
+/** The slice of NanoSession the detector needs (mockable in tests). */
+export interface NanoPrompter {
+  readonly warm: boolean;
+  availability(): Promise<string>;
+  ready(): Promise<unknown>;
+  prompt(input: string, options?: PromptOptions): Promise<string>;
 }
 
 export interface NanoDetectorOptions {
+  /** Budget for one whole detect() or warmUp(). */
   timeoutMs?: number;
   chunkChars?: number;
-  /** Chrome's LanguageModel.availability(); defaults to the global Prompt API. */
-  availability?: () => Promise<string>;
 }
 
 export class NanoTimeoutError extends Error {
@@ -30,21 +33,24 @@ export function nanoPrompt(chunk: string): string {
   ].join("\n");
 }
 
-export function defaultAvailability(): Promise<string> {
-  const lm = (globalThis as { LanguageModel?: { availability(): Promise<string> } }).LanguageModel;
-  return lm ? lm.availability() : Promise.resolve("unavailable");
-}
-
-function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+async function withTimeout<T>(work: (signal: AbortSignal) => Promise<T>, ms: number): Promise<T> {
+  const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new NanoTimeoutError(`Nano timed out after ${ms}ms`)), ms);
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new NanoTimeoutError(`Nano timed out after ${ms}ms`));
+    }, ms);
   });
-  return Promise.race([p, timeout]).finally(() => clearTimeout(timer));
+  try {
+    return await Promise.race([work(controller.signal), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**
- * Gemini Nano (on-device, via Firebase AI Logic ONLY_ON_DEVICE) entity detector.
+ * Gemini Nano (on-device) entity detector on one warm Prompt API session.
  * Best-effort: never throws; failures return [] and set `status`.
  */
 export class NanoDetector implements OptionalDetector {
@@ -52,15 +58,13 @@ export class NanoDetector implements OptionalDetector {
   private _lastError: string | undefined;
   private readonly timeoutMs: number;
   private readonly chunkChars: number;
-  private readonly availability: () => Promise<string>;
 
   constructor(
-    private readonly model: TextModel,
+    private readonly session: NanoPrompter,
     opts: NanoDetectorOptions = {},
   ) {
     this.timeoutMs = opts.timeoutMs ?? 20_000;
     this.chunkChars = opts.chunkChars ?? 2_000;
-    this.availability = opts.availability ?? defaultAvailability;
   }
 
   get status(): DetectorStatus {
@@ -73,33 +77,33 @@ export class NanoDetector implements OptionalDetector {
   }
 
   async detect(text: string): Promise<Span[]> {
-    return this.guard(async () => {
+    return this.guard(async (signal) => {
       const spans: Span[] = [];
       for (const chunk of chunkText(text, this.chunkChars)) {
-        const res = await this.model.generateContent(nanoPrompt(chunk.text));
-        spans.push(...locateEntities(chunk, parseNanoEntities(res.response.text())));
+        const raw = await this.session.prompt(nanoPrompt(chunk.text), { responseConstraint: NANO_RESPONSE_SCHEMA, signal });
+        spans.push(...locateEntities(chunk, parseNanoEntities(raw)));
       }
       return spans;
     }, []);
   }
 
-  /** Creates the on-device session and runs a trivial prompt so the first real call is fast. */
+  /** Creates the warm base session on page load so the first real detect skips session setup. */
   async warmUp(): Promise<DetectorStatus> {
     await this.guard(async () => {
-      await this.model.generateContent(nanoPrompt("Warm-up."));
+      await this.session.ready();
       return true;
     }, false);
     return this._status;
   }
 
-  private async guard<T>(work: () => Promise<T>, fallback: T): Promise<T> {
+  private async guard<T>(work: (signal: AbortSignal) => Promise<T>, fallback: T): Promise<T> {
     try {
-      const availability = await this.availability();
+      const availability = await this.session.availability();
       if (availability !== "available") {
         this.fail("unavailable", `LanguageModel.availability() = ${availability}`);
         return fallback;
       }
-      const out = await withTimeout(work(), this.timeoutMs);
+      const out = await withTimeout(work, this.timeoutMs);
       this._status = "ready";
       this._lastError = undefined;
       return out;

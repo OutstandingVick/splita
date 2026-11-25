@@ -1,27 +1,13 @@
 import type { DetectorStatus } from "@splita/core";
-import { type AI, getGenerativeModel, InferenceMode } from "firebase/ai";
-import { NanoDetector, type NanoDetectorOptions, type TextModel } from "./nano-detector.js";
-import { NANO_RESPONSE_SCHEMA } from "./nano-parse.js";
+import { NanoDetector, type NanoDetectorOptions } from "./nano-detector.js";
+import { NanoSession } from "./nano-session.js";
 
-/** Firebase AI Logic hybrid model pinned to Gemini Nano with a JSON response constraint. */
-export function createNanoModel(ai: AI): TextModel {
-  return getGenerativeModel(ai, {
-    mode: InferenceMode.ONLY_ON_DEVICE,
-    onDeviceParams: {
-      createOptions: {
-        expectedInputs: [{ type: "text", languages: ["en"] }],
-        expectedOutputs: [{ type: "text", languages: ["en"] }],
-      },
-      promptOptions: { responseConstraint: NANO_RESPONSE_SCHEMA },
-    },
-  });
+/** Nano detector on one warm Prompt API session (see nano-session.ts for why not the Firebase adapter). */
+export function createNanoDetector(opts?: NanoDetectorOptions, session = new NanoSession()): NanoDetector {
+  return new NanoDetector(session, opts);
 }
 
-export function createNanoDetector(ai: AI, opts?: NanoDetectorOptions): NanoDetector {
-  return new NanoDetector(createNanoModel(ai), opts);
-}
-
-/** Call on page load: creates the Nano session and runs a trivial prompt. Never throws. */
+/** Call on page load: creates the warm base session. Never throws. */
 export function warmUpNano(detector: NanoDetector): Promise<DetectorStatus> {
   return detector.warmUp();
 }

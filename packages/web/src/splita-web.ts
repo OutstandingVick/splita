@@ -56,7 +56,7 @@ export function composePrompt(question: string | undefined, text: string): strin
 
 /** Wires the web adapters into the core pipeline. */
 export function createSplitaWeb(opts: SplitaWebOptions): SplitaWeb {
-  const nano: NanoDetector | undefined = opts.nano === false ? undefined : createNanoDetector(opts.ai, opts.nano);
+  const nano: NanoDetector | undefined = opts.nano === false ? undefined : createNanoDetector(opts.nano);
   const detector = new CompositeDetector(new RulesDetector(), nano);
   const vault = new IndexedDBVault();
 
