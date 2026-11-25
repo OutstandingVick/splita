@@ -2,8 +2,12 @@ import type { InferenceSource, ReasonerPort, ReasonerResult } from "@splita/core
 import { type AI, getGenerativeModel, InferenceMode } from "firebase/ai";
 
 export const CLOUD_MODEL = "gemini-3.5-flash-lite";
-/** Second cloud model, tried once the primary has exhausted its retries. */
-export const FALLBACK_CLOUD_MODEL = "gemini-2.5-flash";
+/**
+ * Second cloud model, tried once the primary has exhausted its retries. A different model from the
+ * primary, so an overloaded model doesn't take the request down. (gemini-2.5-flash returns 404 for
+ * new projects.) Override with `fallbackCloudModel` / NEXT_PUBLIC_FALLBACK_CLOUD_MODEL.
+ */
+export const FALLBACK_CLOUD_MODEL = "gemini-3.5-flash";
 
 export const REASONER_SYSTEM_INSTRUCTION = `You are a careful Nigerian legal assistant helping a lawyer or a member of the public understand a document.
 

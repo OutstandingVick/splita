@@ -9,7 +9,16 @@ let instance: SplitaWeb | undefined;
 export function getSplita(): SplitaWeb {
   if (!instance) {
     const { ai, auth, firestore } = getFirebase();
-    instance = createSplitaWeb({ ai, auth, firestore });
+    const cloudModel = process.env.NEXT_PUBLIC_CLOUD_MODEL;
+    const fallbackCloudModel = process.env.NEXT_PUBLIC_FALLBACK_CLOUD_MODEL;
+    instance = createSplitaWeb({
+      ai,
+      auth,
+      firestore,
+      ...(cloudModel ? { cloudModel } : {}),
+      // "none" disables the fallback.
+      ...(fallbackCloudModel ? { fallbackCloudModel: fallbackCloudModel === "none" ? false : fallbackCloudModel } : {}),
+    });
   }
   return instance;
 }
