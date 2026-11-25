@@ -58,7 +58,7 @@ export interface SplitaWeb {
   warmUpNano(): Promise<DetectorStatus>;
   /** Quick explain (PREFER_ON_DEVICE). Refuses text containing a known identity from this workspace. */
   explain(workspaceId: string, term: string): Promise<Explanation>;
-  /** Anonymize on the device only (no cloud, no receipt, no vault writes). Works offline. */
+  /** Anonymize on the device only, rules + Nano (no cloud, no receipt, no vault writes). Works offline. */
   preview(input: { workspaceId: string; text: string; question?: string }): Promise<PreviewResult>;
   /** This user's receipts from Firestore, newest first. */
   receipts(workspaceId?: string): Promise<Receipt[]>;
@@ -115,7 +115,7 @@ export function createSplitaWeb(opts: SplitaWebOptions): SplitaWeb {
     vault,
     signIn,
     preview: ({ workspaceId, text, question }) =>
-      previewSplita({ workspaceId, text: composePrompt(question, text) }, { detectors: [new RulesDetector()], vault }),
+      previewSplita({ workspaceId, text: composePrompt(question, text) }, { detectors: [detector], vault }),
     receipts: (workspaceId) => receipts.list(workspaceId),
     async explain(workspaceId, term) {
       const known = (await vault.list(workspaceId)).flatMap((e) => e.aliases);
