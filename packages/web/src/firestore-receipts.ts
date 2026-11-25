@@ -18,6 +18,9 @@ function toReceipt(data: Record<string, unknown>): Receipt {
 
 /** Hash-chained receipts at users/{uid}/receipts/{receiptId}. Create-only; rules deny update/delete. */
 export class FirestoreReceipts implements ReceiptPort {
+  /** Latest receipt per workspace, so the receipt stage can skip the head() round trip. */
+  private readonly heads = new Map<string, Receipt>();
+
   constructor(
     private readonly db: Firestore,
     private readonly uid: () => Promise<string>,
@@ -27,6 +30,7 @@ export class FirestoreReceipts implements ReceiptPort {
     assertSafeReceipt(receipt);
     const uid = await this.uid();
     await setDoc(doc(this.db, "users", uid, "receipts", receipt.id), receipt);
+    this.heads.set(receipt.workspaceId, receipt);
   }
 
   /** This user's receipts, newest first (all workspaces, or one). */
@@ -40,6 +44,8 @@ export class FirestoreReceipts implements ReceiptPort {
   }
 
   async head(workspaceId: string): Promise<Receipt | undefined> {
+    const cached = this.heads.get(workspaceId);
+    if (cached) return cached;
     const uid = await this.uid();
     const q = query(
       collection(this.db, "users", uid, "receipts"),
@@ -49,6 +55,8 @@ export class FirestoreReceipts implements ReceiptPort {
     );
     const snap = await getDocs(q);
     const first = snap.docs[0];
-    return first ? toReceipt(first.data()) : undefined;
+    const head = first ? toReceipt(first.data()) : undefined;
+    if (head) this.heads.set(workspaceId, head);
+    return head;
   }
 }

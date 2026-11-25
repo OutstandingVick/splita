@@ -62,6 +62,11 @@ export interface SplitaWeb {
   preview(input: { workspaceId: string; text: string; question?: string }): Promise<PreviewResult>;
   /** This user's receipts from Firestore, newest first. */
   receipts(workspaceId?: string): Promise<Receipt[]>;
+  /**
+   * Call on app load: signs in anonymously and fetches the matter's latest receipt, so the
+   * Receipt stage later is a single write. Never throws.
+   */
+  warmUpCloud(workspaceId?: string): Promise<void>;
   /** Anonymous sign-in; call on app start. Resolves to the uid. */
   signIn(): Promise<string>;
   readonly vault: IndexedDBVault;
@@ -117,6 +122,15 @@ export function createSplitaWeb(opts: SplitaWebOptions): SplitaWeb {
     preview: ({ workspaceId, text, question }) =>
       previewSplita({ workspaceId, text: composePrompt(question, text) }, { detectors: [detector], vault }),
     receipts: (workspaceId) => receipts.list(workspaceId),
+    async warmUpCloud(workspaceId) {
+      try {
+        await signIn();
+        if (workspaceId) await receipts.head(workspaceId);
+        else await receipts.list(undefined, 1);
+      } catch {
+        // Offline or not configured yet: the run reports any real problem.
+      }
+    },
     async explain(workspaceId, term) {
       const known = (await vault.list(workspaceId)).flatMap((e) => e.aliases);
       return explainer.explain(term, known);

@@ -42,7 +42,17 @@ export function DeviceStatusProvider({ children }: { children: ReactNode }) {
         setNano(s);
         if (s !== "ready") console.warn(`[splita] Nano warm-up ${s}: ${splita.nanoError ?? "no detail"}`);
       });
-      if (navigator.onLine) splita.signIn().then(setUid, (e: unknown) => setSetupError(String(e)));
+      // Sign in and open the Firestore connection now, so the Receipt stage is just one write.
+      if (navigator.onLine) {
+        splita.signIn().then(
+          (id) => {
+            setUid(id);
+            const matter = new URLSearchParams(window.location.search).get("matter") ?? undefined;
+            void splita.warmUpCloud(matter);
+          },
+          (e: unknown) => setSetupError(String(e)),
+        );
+      }
     } catch (e) {
       setNano("unavailable");
       setSetupError(String(e));

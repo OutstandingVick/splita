@@ -53,6 +53,25 @@ describe("FirestoreReceipts", () => {
   });
 });
 
+describe("FirestoreReceipts head cache", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("serves head from the last append without querying", async () => {
+    const r = new FirestoreReceipts(db, async () => "u1");
+    await r.append(receipt);
+    expect(await r.head("demo")).toEqual(receipt);
+    expect(fs.getDocs).not.toHaveBeenCalled();
+  });
+
+  it("queries once, then reuses the result", async () => {
+    fs.getDocs.mockResolvedValueOnce({ docs: [{ data: () => receipt }] });
+    const r = new FirestoreReceipts(db, async () => "u1");
+    await r.head("demo");
+    await r.head("demo");
+    expect(fs.getDocs).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("FirestoreReceipts.list", () => {
   it("lists all of the user's receipts newest first, fields stripped", async () => {
     fs.getDocs.mockResolvedValueOnce({ docs: [{ data: () => ({ ...receipt, junk: 1 }) }] });
