@@ -17,6 +17,19 @@ function fakeNano(spans: Span[], status: DetectorStatus, fail = false): Optional
 const TEXT = "Mr. Adebayo Ogunleye met Kunle Ajayi at Zenith Bank Plc.";
 
 describe("CompositeDetector", () => {
+  it("passes the rule-found spans to the optional detector", async () => {
+    let known: readonly Span[] | undefined;
+    const nano: OptionalDetector = {
+      status: "ready",
+      detect: async (_text, k) => {
+        known = k;
+        return [];
+      },
+    };
+    await new CompositeDetector(new RulesDetector(), nano).detect(TEXT);
+    expect(known?.map((s) => s.text)).toEqual(["Mr. Adebayo Ogunleye", "Zenith Bank Plc"]);
+  });
+
   it("adds nano-only entities in rules+nano mode", async () => {
     const d = new CompositeDetector(new RulesDetector(), fakeNano([nanoSpan("Kunle Ajayi", 25)], "ready"));
     const spans = await d.detect(TEXT);
