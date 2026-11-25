@@ -3,6 +3,7 @@
 import type { DetectorStatus } from "@splita/core";
 import type { SplitaRunResult } from "@splita/web";
 import { useEffect, useState } from "react";
+import { AnonymizedText } from "@/components/anonymized-text";
 import { Markdown } from "@/components/markdown";
 import { EMPLOYMENT_FIXTURE, EMPLOYMENT_QUESTION } from "@/lib/fixtures";
 import { getSplita } from "@/lib/splita";
@@ -16,7 +17,7 @@ const TONE: Record<Tone, string> = {
   plain: "border-neutral-200 bg-neutral-50",
 };
 
-function Block({ title, children, tone = "plain" }: { title: string; children: string; tone?: Tone }) {
+function Block({ title, children, tone = "plain" }: { title: string; children: React.ReactNode; tone?: Tone }) {
   return (
     <section className="space-y-1">
       <h2 className="text-sm font-medium text-neutral-700">{title}</h2>
@@ -151,8 +152,8 @@ export default function PipelineTestPage() {
                 </tbody>
               </table>
               <div className="grid gap-4 md:grid-cols-2">
-                <Block title="What the cloud saw (anonymized)" tone="cloud">
-                  {result.cloudView.anonymizedText}
+                <Block title="What the cloud saw (anonymized) · hover a placeholder: amber = rules, violet = Nano" tone="cloud">
+                  <AnonymizedText text={result.cloudView.anonymizedText} placeholders={result.cloudView.placeholders} />
                 </Block>
                 <MarkdownBlock title="Raw cloud answer" tone="cloud" text={result.cloudView.cloudAnswer} />
               </div>
