@@ -17,6 +17,8 @@ export interface SplitViewProps {
   placeholders: readonly PlaceholderInfo[];
   hovered?: string | null;
   onHover?: (placeholder: string | null) => void;
+  /** Bump to scroll to and pulse the first placeholder only Gemini Nano found. */
+  focusNano?: number;
 }
 
 /** Your view: the original text with each identity marked (on this device only). */
@@ -56,6 +58,7 @@ function CloudPane({ cloudText, placeholders, hovered, onHover }: SplitViewProps
       <mark
         key={m.index}
         tabIndex={0}
+        data-source={p.sources.includes("nano") && !p.sources.includes("rules") ? "nano" : "rules"}
         title={placeholderTooltip(p)}
         onMouseEnter={() => onHover?.(m[0])}
         onMouseLeave={() => onHover?.(null)}
@@ -77,6 +80,18 @@ export function SplitView(outer: SplitViewProps) {
   // device from localView, never from anything the cloud returned.
   const [hovered, setHovered] = useState<string | null>(null);
   const localRef = useRef<HTMLPreElement>(null);
+  const cloudRef = useRef<HTMLPreElement>(null);
+
+  useEffect(() => {
+    if (!outer.focusNano || !cloudRef.current) return;
+    const first = cloudRef.current.querySelector<HTMLElement>('mark[data-source="nano"]');
+    if (!first) return;
+    first.scrollIntoView({ behavior: "smooth", block: "center" });
+    first.classList.remove("splita-pulse");
+    void first.offsetWidth; // restart the animation
+    first.classList.add("splita-pulse");
+    setHovered(first.textContent);
+  }, [outer.focusNano]);
   const props: SplitViewProps = { ...outer, hovered, onHover: setHovered };
 
   useEffect(() => {
@@ -115,7 +130,7 @@ export function SplitView(outer: SplitViewProps) {
             </span>
           </span>
         </header>
-        <pre data-testid="cloud-payload" className="max-h-[28rem] overflow-auto whitespace-pre-wrap p-4 font-mono text-[12.5px] leading-relaxed text-stone-700">
+        <pre ref={cloudRef} data-testid="cloud-payload" className="max-h-[28rem] overflow-auto whitespace-pre-wrap p-4 font-mono text-[12.5px] leading-relaxed text-stone-700">
           <CloudPane {...props} />
         </pre>
       </section>

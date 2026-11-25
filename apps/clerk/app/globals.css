@@ -30,3 +30,15 @@
     background: var(--color-accent-100);
   }
 }
+
+/* Draws the eye to a span (the first Nano-only placeholder) without moving layout. */
+@keyframes splita-pulse {
+  0% { box-shadow: 0 0 0 0 rgb(124 58 237 / 0.55); }
+  100% { box-shadow: 0 0 0 10px rgb(124 58 237 / 0); }
+}
+.splita-pulse {
+  animation: splita-pulse 0.9s ease-out 3;
+}
+@media (prefers-reduced-motion: reduce) {
+  .splita-pulse { animation: none; outline: 2px solid rgb(124 58 237); }
+}

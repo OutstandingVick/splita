@@ -26,3 +26,8 @@ export function hybridSummary(mode: DetectionMode, inferenceSource: InferenceSou
 export function hybridSummaryText(parts: readonly HybridPart[]): string {
   return parts.map((p) => `${p.label}: ${p.stages}`).join(" — ");
 }
+
+/** Placeholders only Gemini Nano found (no rule matched any of their mentions). */
+export function nanoOnly<T extends { placeholder: string; sources: readonly string[] }>(placeholders: readonly T[]): T[] {
+  return placeholders.filter((p) => p.sources.includes("nano") && !p.sources.includes("rules"));
+}

@@ -14,8 +14,27 @@ import { PipelineStrip } from "@/components/workspace/pipeline-strip";
 import { SplitView } from "@/components/workspace/split-view";
 import { DEMO_MATTER_ID, demoMatter } from "@/lib/matters";
 import { getSplita } from "@/lib/splita";
+import { nanoOnly } from "@/lib/hybrid-summary";
 import { useAsk } from "@/lib/use-ask";
 import { useMatters } from "@/lib/use-matters";
+
+function NanoChip({ count, onShow }: { count: number; onShow: () => void }) {
+  if (count === 0) {
+    return <p className="text-xs text-stone-500">Gemini Nano checked the text and found nothing the rules had missed.</p>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={onShow}
+      data-testid="nano-chip"
+      className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-nano px-3 py-1 text-xs font-medium text-nano-ink hover:border-violet-300"
+    >
+      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-violet-600" />
+      Gemini Nano caught {count} {count === 1 ? "identity" : "identities"} rules missed
+      <span aria-hidden>→</span>
+    </button>
+  );
+}
 
 function Workspace() {
   const params = useSearchParams();
@@ -25,6 +44,7 @@ function Workspace() {
   const state = stateFor(selected?.id);
   const outcome = state.outcome;
   const [showCloud, setShowCloud] = useState(false);
+  const [focusNano, setFocusNano] = useState(0);
 
   // Fetch the matter's latest receipt ahead of time so the Receipt stage is a single write.
   useEffect(() => {
@@ -113,6 +133,10 @@ function Workspace() {
             )}
             {outcome?.kind === "answer" && outcome.result.ok && (
               <>
+                {outcome.result.mode === "rules+nano" && <NanoChip count={nanoOnly(outcome.result.cloudView.placeholders).length} onShow={() => {
+                  setShowCloud(true);
+                  setFocusNano((n) => n + 1);
+                }} />}
                 <AnswerPanel matterId={selected.id} answer={outcome.result.answer} />
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm font-semibold text-stone-800">What left this device</h2>
@@ -135,6 +159,7 @@ function Workspace() {
                     localSpans={outcome.result.localView.spans}
                     cloudText={outcome.result.cloudView.anonymizedText}
                     placeholders={outcome.result.cloudView.placeholders}
+                    focusNano={focusNano}
                   />
                 )}
                 <ReceiptCard
