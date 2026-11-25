@@ -12,7 +12,8 @@ export interface TextModel {
 export interface NanoDetectorOptions {
   /** Budget for one whole detect() or warmUp(). */
   timeoutMs?: number;
-  chunkChars?: number;
+  /** Max characters of sentences batched into one prompt. */
+  batchChars?: number;
   now?: () => number;
 }
 
@@ -70,7 +71,7 @@ export class NanoDetector implements OptionalDetector {
   private _status: DetectorStatus = "idle";
   private _lastError: string | undefined;
   private readonly timeoutMs: number;
-  private readonly chunkChars: number;
+  private readonly batchChars: number;
   private readonly now: () => number;
   private _lastRun: NanoRun | undefined;
   /** True once an on-device call has succeeded, so the model is loaded. */
@@ -82,7 +83,7 @@ export class NanoDetector implements OptionalDetector {
     opts: NanoDetectorOptions = {},
   ) {
     this.timeoutMs = opts.timeoutMs ?? 20_000;
-    this.chunkChars = opts.chunkChars ?? 4_000;
+    this.batchChars = opts.batchChars ?? 4_000;
     this.now = opts.now ?? (() => performance.now());
   }
 
@@ -107,7 +108,7 @@ export class NanoDetector implements OptionalDetector {
     // On-device calls run one at a time, so send as little as possible: only the sentences with a
     // capitalized name candidate that no rule span or allowlisted term covers, batched together.
     const todo = splitSentences(text).filter((s) => uncoveredCandidates(s.text, s.offset, known).length > 0);
-    const batches = batchSentences(todo, this.chunkChars);
+    const batches = batchSentences(todo, this.batchChars);
     const spans = await this.guard(async () => {
       const out: Span[] = [];
       for (const batch of batches) {

@@ -36,26 +36,6 @@ export interface Chunk {
   offset: number;
 }
 
-/** Splits on paragraph boundaries into chunks of at most ~maxChars (hard-splits oversized paragraphs). */
-export function chunkText(text: string, maxChars = 2000): Chunk[] {
-  const paras: Chunk[] = [];
-  const re = /[^\n]+(?:\n[^\n]+)*/g; // paragraphs = runs of non-empty lines
-  for (const m of text.matchAll(re)) {
-    if (m.index === undefined || m[0].trim() === "") continue;
-    for (let i = 0; i < m[0].length; i += maxChars) paras.push({ text: m[0].slice(i, i + maxChars), offset: m.index + i });
-  }
-  const chunks: Chunk[] = [];
-  for (const p of paras) {
-    const last = chunks.at(-1);
-    if (last && p.offset + p.text.length - last.offset <= maxChars) {
-      last.text = text.slice(last.offset, p.offset + p.text.length);
-    } else {
-      chunks.push({ ...p });
-    }
-  }
-  return chunks;
-}
-
 /** Defensive parse of Nano output: tolerates code fences, prose around the array and bad items. */
 export function parseNanoEntities(raw: string): NanoEntity[] {
   const start = raw.indexOf("[");

@@ -1,23 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NANO_RESPONSE_SCHEMA, chunkText, locateEntities, parseNanoEntities } from "./nano-parse.js";
-
-describe("chunkText", () => {
-  it("keeps short text as one chunk", () => {
-    expect(chunkText("a\n\nb")).toEqual([{ text: "a\n\nb", offset: 0 }]);
-  });
-
-  it("splits on paragraph boundaries and keeps offsets", () => {
-    const text = `${"a".repeat(30)}\n\n${"b".repeat(30)}\n\n${"c".repeat(10)}`;
-    const chunks = chunkText(text, 50);
-    expect(chunks.map((c) => c.text)).toEqual(["a".repeat(30), `${"b".repeat(30)}\n\n${"c".repeat(10)}`]);
-    for (const c of chunks) expect(text.slice(c.offset, c.offset + c.text.length)).toBe(c.text);
-  });
-
-  it("hard-splits a paragraph longer than the limit", () => {
-    const chunks = chunkText("x".repeat(120), 50);
-    expect(chunks.map((c) => [c.offset, c.text.length])).toEqual([[0, 50], [50, 50], [100, 20]]);
-  });
-});
+import { NANO_RESPONSE_SCHEMA, locateEntities, parseNanoEntities } from "./nano-parse.js";
 
 describe("parseNanoEntities", () => {
   it("parses a clean array", () => {
