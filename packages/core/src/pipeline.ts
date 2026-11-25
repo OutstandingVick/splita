@@ -6,7 +6,7 @@ import { pseudonymize } from "./pseudonymize.js";
 import { countEntities, detectorSources, receiptHash, sealReceipt } from "./receipt.js";
 import { resolveEntities } from "./resolver.js";
 import { mappingFromEntities, restore } from "./restore.js";
-import type { Receipt, Stage, StageTimings } from "./types.js";
+import type { DetectorSource, EntityType, Mapping, Receipt, Span, Stage, StageTimings } from "./types.js";
 
 export interface SplitaDeps {
   detectors: readonly DetectorPort[];
@@ -25,12 +25,29 @@ export interface SplitaInput {
   text: string;
 }
 
+/** What the UI may show about a placeholder. Deliberately carries no real value. */
+export interface PlaceholderInfo {
+  placeholder: string;
+  type: EntityType;
+  role?: string;
+  sources: DetectorSource[];
+}
+
+/** Which detectors found each placeholder in this run. */
+export function placeholderInfo(mapping: Mapping, spans: readonly Span[]): PlaceholderInfo[] {
+  return Object.values(mapping).map((e) => {
+    const aliases = new Set(e.aliases.map((a) => a.toLowerCase()));
+    const sources = [...new Set(spans.filter((s) => aliases.has(s.text.toLowerCase())).map((s) => s.source))].sort();
+    return { placeholder: e.placeholder, type: e.type, ...(e.role ? { role: e.role } : {}), sources };
+  });
+}
+
 export interface SplitaSuccess {
   ok: true;
   /** Cloud answer with real identities restored on-device. */
   answer: string;
   /** Exactly what the cloud saw and said. */
-  cloudView: { anonymizedText: string; cloudAnswer: string };
+  cloudView: { anonymizedText: string; cloudAnswer: string; placeholders: PlaceholderInfo[] };
   receipt: Receipt;
 }
 
@@ -108,7 +125,11 @@ export async function runSplita(input: SplitaInput, deps: SplitaDeps): Promise<S
     );
     await deps.receipts.append(receipt);
 
-    return { ok: true, answer, cloudView: { anonymizedText: pseudo.anonymizedText, cloudAnswer: cloud.text }, receipt };
+    return { ok: true, answer, cloudView: {
+        anonymizedText: pseudo.anonymizedText,
+        cloudAnswer: cloud.text,
+        placeholders: placeholderInfo(pseudo.mapping, pseudo.spans),
+      }, receipt };
   } catch (e) {
     return { ok: false, stage, error: e instanceof Error ? e : new Error(String(e)) };
   }

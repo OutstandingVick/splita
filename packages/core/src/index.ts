@@ -3,7 +3,7 @@ export const SPLITA_CORE_VERSION = "0.1.0";
 
 export * from "./types.js";
 export * from "./ports.js";
-export { runSplita, type SplitaDeps, type SplitaFailure, type SplitaInput, type SplitaResult, type SplitaSuccess } from "./pipeline.js";
+export { runSplita, placeholderInfo, type PlaceholderInfo, type SplitaDeps, type SplitaFailure, type SplitaInput, type SplitaResult, type SplitaSuccess } from "./pipeline.js";
 export { RulesDetector, DEFAULT_RULES } from "./rules-detector.js";
 export type { Rule } from "./rules/match.js";
 export { resolveOverlaps } from "./overlap.js";

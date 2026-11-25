@@ -40,6 +40,13 @@ describe("fixture: employment contract dispute", () => {
     expect(result.cloudView.anonymizedText).toContain(court);
   });
 
+  it("describes each placeholder by type and detector, never by value", async () => {
+    const { result } = await runFixture(employmentDispute);
+    const info = result.cloudView.placeholders;
+    expect(info.find((p) => p.placeholder === "EMPLOYEE_1")).toEqual({ placeholder: "EMPLOYEE_1", type: "PERSON", role: "employee", sources: ["rules"] });
+    expect(JSON.stringify(info)).not.toMatch(/Ogunleye|Zenith|Lagos|0123456789/);
+  });
+
   it("anonymized output matches the reviewed snapshot", async () => {
     const { result } = await runFixture(employmentDispute);
     expect(result.cloudView.anonymizedText).toMatchSnapshot();
