@@ -2,9 +2,10 @@
 
 import type { DetectorStatus } from "@splita/core";
 import type { SplitaRunResult } from "@splita/web";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnonymizedText } from "@/components/anonymized-text";
 import { Markdown } from "@/components/markdown";
+import { placeholderInline, QuickExplainPanel, useQuickExplain } from "@/components/quick-explain";
 import { EMPLOYMENT_FIXTURE, EMPLOYMENT_QUESTION } from "@/lib/fixtures";
 import { getSplita } from "@/lib/splita";
 
@@ -26,12 +27,24 @@ function Block({ title, children, tone = "plain" }: { title: string; children: R
   );
 }
 
-function MarkdownBlock({ title, text, tone }: { title: string; text: string; tone: Tone }) {
+function MarkdownBlock({
+  title,
+  text,
+  tone,
+  inline,
+  innerRef,
+}: {
+  title: string;
+  text: string;
+  tone: Tone;
+  inline?: (t: string) => React.ReactNode[];
+  innerRef?: React.Ref<HTMLDivElement>;
+}) {
   return (
     <section className="space-y-1">
       <h2 className="text-sm font-medium text-neutral-700">{title}</h2>
-      <div className={`max-h-[32rem] overflow-auto rounded border p-4 ${TONE[tone]}`}>
-        <Markdown text={text} />
+      <div ref={innerRef} className={`max-h-[32rem] overflow-auto rounded border p-4 ${TONE[tone]}`}>
+        <Markdown text={text} {...(inline ? { inline } : {})} />
       </div>
     </section>
   );
@@ -45,6 +58,19 @@ export default function PipelineTestPage() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<SplitaRunResult | null>(null);
   const [setupError, setSetupError] = useState<string | null>(null);
+  const cloudAnswerRef = useRef<HTMLDivElement>(null);
+  const explain = useQuickExplain((term) => getSplita().explain(WORKSPACE, term));
+
+  // Only text selected inside the anonymized cloud answer may be explained.
+  function explainSelection() {
+    const sel = window.getSelection();
+    const box = cloudAnswerRef.current;
+    if (!sel || !box || !sel.anchorNode || !box.contains(sel.anchorNode) || !box.contains(sel.focusNode)) {
+      explain.pick("");
+      return;
+    }
+    explain.pick(sel.toString());
+  }
 
   useEffect(() => {
     try {
@@ -133,8 +159,9 @@ export default function PipelineTestPage() {
             {result.nanoError ? ` (${result.nanoError})` : ""}
             {result.nanoRun && (
               <>
-                {" "}· nano pass: <strong data-testid="nano-run">{result.nanoRun.warm ? "warm" : "cold"}</strong> {result.nanoRun.ms} ms over{" "}
-                {result.nanoRun.chunks} chunk{result.nanoRun.chunks === 1 ? "" : "s"}
+                {" "}· nano pass: <strong data-testid="nano-run">{result.nanoRun.warm ? "warm" : "cold"}</strong> {result.nanoRun.ms} ms, {result.nanoRun.prompted}/
+                {result.nanoRun.chunks} chunk{result.nanoRun.chunks === 1 ? "" : "s"} prompted
+                {result.nanoRun.prompted === 0 ? " (rules covered every name)" : ""}
               </>
             )}
           </p>
@@ -155,8 +182,15 @@ export default function PipelineTestPage() {
                 <Block title="What the cloud saw (anonymized) · hover a placeholder: amber = rules, violet = Nano" tone="cloud">
                   <AnonymizedText text={result.cloudView.anonymizedText} placeholders={result.cloudView.placeholders} />
                 </Block>
-                <MarkdownBlock title="Raw cloud answer" tone="cloud" text={result.cloudView.cloudAnswer} />
+                <MarkdownBlock
+                  title="Raw cloud answer"
+                  tone="cloud"
+                  text={result.cloudView.cloudAnswer}
+                  inline={placeholderInline(explain.pick)}
+                  innerRef={cloudAnswerRef}
+                />
               </div>
+              <QuickExplainPanel state={explain.state} onExplainSelection={explainSelection} />
               <MarkdownBlock title="Restored answer (on this device)" tone="local" text={result.answer} />
               <Block title="Receipt (written to Firestore)">{JSON.stringify(result.receipt, null, 2)}</Block>
             </>
