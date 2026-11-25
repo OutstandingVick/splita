@@ -1,7 +1,9 @@
 import type { InferenceSource, ReasonerPort, ReasonerResult } from "@splita/core";
-import { type AI, getGenerativeModel, InferenceMode } from "firebase/ai";
+import { type AI, getGenerativeModel, InferenceMode, ThinkingLevel } from "firebase/ai";
 
 export const CLOUD_MODEL = "gemini-3.5-flash";
+/** Caps answer length (and cost). Thinking is kept low so it doesn't eat into this budget. */
+export const CLOUD_MAX_OUTPUT_TOKENS = 800;
 /**
  * Second cloud model, tried once the primary has exhausted its retries. A different model from the
  * primary, so an overloaded model doesn't take the request down. (gemini-2.5-flash returns 404 for
@@ -16,14 +18,14 @@ Placeholders
 - Copy every token exactly as written, including possessives (EMPLOYER_1's). Never guess, invent or ask for the real values, and never describe a token as missing or redacted.
 - Amount buckets: AMOUNT_NGN_SMALL < ₦100,000; AMOUNT_NGN_MID < ₦5,000,000; AMOUNT_NGN_LARGE ≥ ₦5,000,000. Refer to amounts by their token.
 
-Answer in Markdown with these sections:
-1. **Short answer**: two or three sentences.
+Answer in Markdown, concisely: at most about 300 words in total, short bullet points rather than paragraphs, and these five sections:
+1. **Short answer**: one or two sentences.
 2. **Legal basis**: the Nigerian laws, court and principles that apply (for example the Labour Act, the Constitution, NDPA 2023, Lagos State Tenancy Law 2011, the National Industrial Court's jurisdiction), with the relevant section where you are confident. Say so when you are not sure of a section number.
 3. **Amounts**: a list of every amount token with what it is for and whether it looks recoverable.
 4. **Next steps**: concrete actions in order, such as a demand letter with a deadline, limitation periods and other timelines, and the evidence to gather (contracts, payslips, bank statements, correspondence).
 5. **Confirm with a lawyer**: the points that depend on facts or law you cannot verify.
 
-Be precise and practical. Do not invent facts that are not in the document.`;
+Be precise and practical; no preamble, no repetition between sections. Do not invent facts that are not in the document.`;
 
 /** The slice of Firebase's GenerativeModel the reasoner needs. */
 export interface CloudModel {
@@ -187,6 +189,10 @@ export class FirebaseReasoner implements ReasonerPort {
 export function createCloudModel(ai: AI, model: string = CLOUD_MODEL): CloudModel {
   return getGenerativeModel(ai, {
     mode: InferenceMode.ONLY_IN_CLOUD,
-    inCloudParams: { model, systemInstruction: REASONER_SYSTEM_INSTRUCTION },
+    inCloudParams: {
+      model,
+      systemInstruction: REASONER_SYSTEM_INSTRUCTION,
+      generationConfig: { maxOutputTokens: CLOUD_MAX_OUTPUT_TOKENS, thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } },
+    },
   });
 }
