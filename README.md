@@ -10,7 +10,7 @@ pnpm install && pnpm --filter @splita/clerk dev
 
 ## How Splita uses Firebase AI Logic hybrid inference
 
-All model calls go through the Firebase JS SDK (`firebase/ai`, `getGenerativeModel` with an `InferenceMode`), with App Check enforced. On-device means Gemini Nano in Chrome; cloud means `gemini-3.5-flash-lite` on the Gemini Developer API.
+All model calls go through the Firebase JS SDK (`firebase/ai`, `getGenerativeModel` with an `InferenceMode`), with App Check enforced. On-device means Gemini Nano in Chrome; cloud means `gemini-3.5-flash` (fallback `gemini-3.5-flash-lite`) on the Gemini Developer API.
 
 | Call site | InferenceMode | What it does | Sees real identities? |
 |---|---|---|---|

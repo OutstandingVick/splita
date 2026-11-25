@@ -31,7 +31,7 @@ describe("FirebaseReasoner", () => {
       },
       () => t,
     );
-    expect(await r.reason("Does EMPLOYER_1 owe?")).toEqual({ text: "EMPLOYER_1 must pay.", source: "in_cloud", latencyMs: 250, attempts: 1, model: "gemini-3.5-flash-lite" });
+    expect(await r.reason("Does EMPLOYER_1 owe?")).toEqual({ text: "EMPLOYER_1 must pay.", source: "in_cloud", latencyMs: 250, attempts: 1, model: "gemini-3.5-flash" });
     expect(prompts).toEqual(["Does EMPLOYER_1 owe?"]);
   });
 
@@ -151,6 +151,6 @@ describe("FirebaseReasoner attempt events", () => {
       onAttempt: (a) => seen.push(`${a.attempt}:${a.model}:${a.retryAfter ?? "-"}`),
     });
     await r.reason("x");
-    expect(seen).toEqual(["1:gemini-3.5-flash-lite:-", "2:gemini-3.5-flash-lite:rate-limit", "3:gemini-3.5-flash-lite:server-error", "4:b:server-error"]);
+    expect(seen).toEqual(["1:gemini-3.5-flash:-", "2:gemini-3.5-flash:rate-limit", "3:gemini-3.5-flash:server-error", "4:b:server-error"]);
   });
 });

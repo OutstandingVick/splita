@@ -1,13 +1,13 @@
 import type { InferenceSource, ReasonerPort, ReasonerResult } from "@splita/core";
 import { type AI, getGenerativeModel, InferenceMode } from "firebase/ai";
 
-export const CLOUD_MODEL = "gemini-3.5-flash-lite";
+export const CLOUD_MODEL = "gemini-3.5-flash";
 /**
  * Second cloud model, tried once the primary has exhausted its retries. A different model from the
  * primary, so an overloaded model doesn't take the request down. (gemini-2.5-flash returns 404 for
  * new projects.) Override with `fallbackCloudModel` / NEXT_PUBLIC_FALLBACK_CLOUD_MODEL.
  */
-export const FALLBACK_CLOUD_MODEL = "gemini-3.5-flash";
+export const FALLBACK_CLOUD_MODEL = "gemini-3.5-flash-lite";
 
 export const REASONER_SYSTEM_INSTRUCTION = `You are a careful Nigerian legal assistant helping a lawyer or a member of the public understand a document.
 
@@ -71,7 +71,7 @@ export interface ReasonerOptions {
   fallback?: NamedCloudModel;
   /** Backoff before each retry, before jitter. Length = retries. Default ~1s, 2s. */
   backoffMs?: readonly number[];
-  /** Per-call limit; a slower call is abandoned and retried. Default 30 s. */
+  /** Per-call limit; a slower call is abandoned and retried. Default 15 s. */
   timeoutMs?: number;
   /** Backoff before switching to the fallback. Default ~4s. */
   fallbackDelayMs?: number;
@@ -122,7 +122,7 @@ export class FirebaseReasoner implements ReasonerPort {
     this.modelName = o.modelName ?? CLOUD_MODEL;
     this.fallback = o.fallback;
     this.fallbackDelayMs = o.fallbackDelayMs ?? 4000;
-    this.timeoutMs = o.timeoutMs ?? 30_000;
+    this.timeoutMs = o.timeoutMs ?? 15_000;
     this.onAttempt = o.onAttempt;
   }
 
