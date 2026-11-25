@@ -5,8 +5,9 @@
 | Port | Adapter | Notes |
 |---|---|---|
 | `DetectorPort` | `CompositeDetector` (core) = `RulesDetector` + `NanoDetector` | Rules run first (milliseconds), and their spans are passed to Nano. Spans merge longest-first, and rules win ties. If Nano is anything but `ready`, the mode drops to `rules-only`. |
-| | `NanoDetector` | Firebase AI Logic `ONLY_ON_DEVICE` with a JSON Schema `responseConstraint`, behind the single-flight `OnDeviceQueue`. Chunks of about 4,000 chars run one after another, and chunks where rules covered every name candidate are skipped. It asks only for PERSON and ORG names rules didn't already find. Answers are mapped back to whole-word occurrences, so hallucinated names are dropped. 20 s budget; never throws. `lastRun` reports warm vs cold timing and chunks prompted. |
-| `ReasonerPort` | `FirebaseReasoner` | `ONLY_IN_CLOUD` on `gemini-3.5-flash-lite`, with a system instruction to keep placeholders verbatim and never guess real values. `source` comes from `response.inferenceSource`. |
+| | `NanoDetector` | Firebase AI Logic `ONLY_ON_DEVICE`, behind the single-flight `OnDeviceQueue`. The text is split into sentences, and only sentences with a capitalized name not covered by a rule span or the allowlist are sent, batched into one prompt. The prompt is minimal, and the `responseConstraint` schema allows `[{text, type}]` with PERSON or ORG only, capped by `maxItems: 16` and `maxLength: 60`. The on-device API has no `maxOutputTokens`, so the schema bounds stand in for it. Names are mapped back to whole-word occurrences, so hallucinated ones are dropped. 20 s budget; never throws. `lastRun` reports warm/cold, ms, and sentences prompted. |
+| `ReasonerPort` | `FirebaseReasoner` | Retries 429/500/503 with exponential backoff and ±25% jitter (~1 s, 2 s). Then, after ~4 s, it falls back once to a second `ONLY_IN_CLOUD` model (`fallbackCloudModel`, default `gemini-2.5-flash`) with the same anonymized payload. If that fails too, the run fails closed at `reason`: nothing is restored and no receipt is written. Attempts and model go into the receipt (`cloudAttempts`, `cloudModel`). |
+| | | `ONLY_IN_CLOUD` on `gemini-3.5-flash-lite`, with a system instruction to keep placeholders verbatim and never guess real values. `source` comes from `response.inferenceSource`. |
 | `VaultPort` | `IndexedDBVault` | DB `splita-vault`, one object store per workspace (`ws:<id>`), plus `clearWorkspace()`. It stays on this device and is never synced. |
 | `ReceiptPort` | `FirestoreReceipts` | `users/{uid}/receipts/{receiptId}` under anonymous Auth. A field whitelist (`assertSafeReceipt`) runs before every write, so raw text and the mapping can't be stored. |
 | `HasherPort` | `WebCryptoHasher` | `crypto.subtle` SHA-256, hex output. |
@@ -68,3 +69,11 @@ pnpm --filter @splita/clerk dev
 - `packages/core`: public-term allowlist, rules-first composite detection, placeholder info.
 - `packages/web`: single-flight on-device queue, warm-up ordering, name-candidate skip, rule-found skip list, warm/cold timing, Quick explain guard, hasher, Nano parsing, chunking and offset mapping, the Nano detector (timeout, unavailable, error, warm-up), the reasoner, receipt safety, and Firestore receipts with `firebase/firestore` mocked.
 - `IndexedDBVault` has no unit tests, because that would need a fake IndexedDB dependency. `/pipeline-test` checks it in a real browser.
+
+## Receipt fields added (redeploy rules)
+
+Receipts now include `cloudModel` and `cloudAttempts`. The Firestore rules whitelist them, so redeploy before running:
+
+```bash
+cd firebase && npx firebase-tools deploy --only firestore:rules
+```
