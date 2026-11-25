@@ -13,9 +13,10 @@
 ## Workspace flow
 
 1. **Ask privately** runs `createSplitaWeb().run()` with `onStage` and `onCloudAttempt`. The strip animates through Detect (rules + Nano) → Pseudonymize → Verify (leak guard) → Cloud → Restore → Receipt, showing real timings. While the Cloud stage runs, it shows retries live ("Retry 1 on gemini-3.5-flash-lite (server busy)…").
-2. **Answer**: the restored answer as Markdown. Courts, agencies and statutes are underlined; clicking one, or selecting text and choosing **Explain selection**, runs Quick explain (`PREFER_ON_DEVICE`), with a badge showing on-device or cloud. Text containing a client identity is refused before anything is sent.
-3. **Show what the cloud saw**: *Your view* (original text, on device) beside *Cloud's view* (the exact payload). Placeholders are amber for rules and violet for Gemini Nano; hover shows type and detector. Hovering or focusing a placeholder highlights every real mention on the left and scrolls to it. That lookup uses `localView` spans computed on the device, never anything from the cloud.
-4. **Receipt card**: payload hash, identities by type, detection mode, inference source, cloud model and attempts, per-stage timings, and the link to the previous receipt. **Verify** recomputes sha256 of the payload shown in Cloud's view, and the receipt's own hash, then shows ✓ when both match.
+2. **Streaming**: while the cloud answers, *Cloud's view* shows the raw reply as it streams in, stand-ins included. Beside it, the answer is restored on the device: a placeholder is restored only once it has fully arrived, and a trailing partial token is held back (`safeStreamPrefix` in core). The receipt still hashes the exact anonymized payload sent, computed before the call.
+3. **Answer**: the restored answer as Markdown. Courts, agencies and statutes are underlined; clicking one, or selecting text and choosing **Explain selection**, runs Quick explain (`PREFER_ON_DEVICE`), with a badge showing on-device or cloud. Text containing a client identity is refused before anything is sent.
+4. **Show what the cloud saw**: *Your view* (original text, on device) beside *Cloud's view* (the exact payload). Placeholders are amber for rules and violet for Gemini Nano; hover shows type and detector. Hovering or focusing a placeholder highlights every real mention on the left and scrolls to it. That lookup uses `localView` spans computed on the device, never anything from the cloud.
+5. **Receipt card**: payload hash, identities by type, detection mode, inference source, cloud model and attempts, per-stage timings, and the link to the previous receipt. **Verify** recomputes sha256 of the payload shown in Cloud's view, and the receipt's own hash, then shows ✓ when both match.
 
 ## Status and failure states
 
