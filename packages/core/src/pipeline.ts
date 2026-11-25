@@ -118,6 +118,8 @@ export async function runSplita(input: SplitaInput, deps: SplitaDeps): Promise<S
         entityCounts: countEntities(pseudo.mapping),
         detectorSources: detectorSources(pseudo.spans),
         inferenceSource: cloud.source,
+        cloudModel: cloud.model ?? "unknown",
+        cloudAttempts: cloud.attempts ?? 1,
         timings,
         prevReceiptHash,
       },

@@ -11,6 +11,8 @@ const body: ReceiptBody = {
   entityCounts: { PERSON: 2 },
   detectorSources: ["rules"],
   inferenceSource: "in_cloud",
+      cloudModel: "gemini-3.5-flash-lite",
+      cloudAttempts: 1,
   timings: { detect: 1, resolve: 1, pseudonymize: 1, reason: 1, restore: 1 },
   prevReceiptHash: null,
 };

@@ -19,7 +19,7 @@ const { FirestoreReceipts, ensureAnonymousUser } = await import("./firestore-rec
 const h = "c".repeat(64);
 const receipt: Receipt = {
   id: "d".repeat(32), timestamp: "2026-11-25T12:00:00.000Z", workspaceId: "demo", payloadHash: h,
-  entityCounts: { PERSON: 1 }, detectorSources: ["rules"], inferenceSource: "in_cloud",
+  entityCounts: { PERSON: 1 }, detectorSources: ["rules"], inferenceSource: "in_cloud", cloudModel: "gemini-3.5-flash-lite", cloudAttempts: 1,
   timings: { detect: 1, resolve: 1, pseudonymize: 1, reason: 1, restore: 1 }, prevReceiptHash: null, hash: h,
 };
 const db = {} as never;

@@ -71,6 +71,10 @@ export interface ReceiptBody {
   entityCounts: Partial<Record<EntityType, number>>;
   detectorSources: DetectorSource[];
   inferenceSource: InferenceSource;
+  /** Cloud model that produced the answer (the fallback, if the primary failed). */
+  cloudModel: string;
+  /** Cloud calls made, including retries and the fallback. */
+  cloudAttempts: number;
   timings: StageTimings;
   prevReceiptHash: string | null;
 }

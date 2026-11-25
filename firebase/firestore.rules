@@ -15,15 +15,19 @@ service cloud.firestore {
 
       function isValidReceipt(r) {
         return r.keys().hasOnly(['id', 'timestamp', 'workspaceId', 'payloadHash', 'entityCounts',
-                                 'detectorSources', 'inferenceSource', 'timings', 'prevReceiptHash', 'hash'])
+                                 'detectorSources', 'inferenceSource', 'cloudModel', 'cloudAttempts',
+                                 'timings', 'prevReceiptHash', 'hash'])
           && r.keys().hasAll(['id', 'timestamp', 'workspaceId', 'payloadHash', 'entityCounts',
-                              'detectorSources', 'inferenceSource', 'timings', 'prevReceiptHash', 'hash'])
+                              'detectorSources', 'inferenceSource', 'cloudModel', 'cloudAttempts',
+                              'timings', 'prevReceiptHash', 'hash'])
           && r.id == receiptId && isHex(r.id, 32)
           && isHex(r.hash, 64) && isHex(r.payloadHash, 64)
           && (r.prevReceiptHash == null || isHex(r.prevReceiptHash, 64))
           && r.timestamp is string && r.timestamp.size() <= 30
           && r.workspaceId is string && r.workspaceId.matches('^[A-Za-z0-9_-]{1,64}$')
           && r.inferenceSource in ['in_cloud', 'on_device']
+          && r.cloudModel is string && r.cloudModel.matches('^[a-z0-9][a-z0-9.-]{0,63}$')
+          && r.cloudAttempts is int && r.cloudAttempts >= 1 && r.cloudAttempts <= 10
           && r.detectorSources is list && r.detectorSources.hasOnly(['rules', 'nano'])
           && r.entityCounts is map
           && r.entityCounts.keys().hasOnly(['PERSON', 'ORG', 'MONEY', 'EMAIL', 'PHONE',

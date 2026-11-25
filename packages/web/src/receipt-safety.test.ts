@@ -11,6 +11,8 @@ const good: Receipt = {
   entityCounts: { PERSON: 2, MONEY: 1 },
   detectorSources: ["nano", "rules"],
   inferenceSource: "in_cloud",
+  cloudModel: "gemini-3.5-flash-lite",
+  cloudAttempts: 1,
   timings: { detect: 10, resolve: 1, pseudonymize: 1, reason: 900, restore: 1 },
   prevReceiptHash: null,
   hash: h,
@@ -28,6 +30,8 @@ describe("assertSafeReceipt", () => {
     ["a name smuggled into workspaceId", { ...good, workspaceId: "Adebayo Ogunleye" }],
     ["a name in entityCounts", { ...good, entityCounts: { "Adebayo Ogunleye": 1 } }],
     ["a non-hex hash", { ...good, payloadHash: "Mr. Ogunleye" }],
+    ["a name in cloudModel", { ...good, cloudModel: "Zenith Bank Plc" }],
+    ["a non-integer cloudAttempts", { ...good, cloudAttempts: 1.5 }],
     ["a missing field", (({ hash: _h, ...rest }) => rest)(good)],
   ])("rejects %s", (_label, bad) => {
     expect(() => assertSafeReceipt(bad as Receipt)).toThrow(ReceiptSafetyError);

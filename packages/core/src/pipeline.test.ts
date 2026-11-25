@@ -44,6 +44,8 @@ describe("runSplita", () => {
       entityCounts: { PERSON: 1, ORG: 1, MONEY: 1 },
       detectorSources: ["rules"],
       inferenceSource: "in_cloud",
+      cloudModel: "unknown",
+      cloudAttempts: 1,
       prevReceiptHash: null,
     });
     expect(Object.keys(r.receipt.timings)).toEqual(["detect", "resolve", "pseudonymize", "reason", "restore"]);

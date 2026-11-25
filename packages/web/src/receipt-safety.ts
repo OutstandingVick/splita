@@ -2,7 +2,7 @@ import { ENTITY_TYPES, type Receipt } from "@splita/core";
 
 export const RECEIPT_FIELDS = [
   "id", "timestamp", "workspaceId", "payloadHash", "entityCounts", "detectorSources",
-  "inferenceSource", "timings", "prevReceiptHash", "hash",
+  "inferenceSource", "cloudModel", "cloudAttempts", "timings", "prevReceiptHash", "hash",
 ] as const;
 
 const TIMING_KEYS = ["detect", "resolve", "pseudonymize", "reason", "restore"];
@@ -35,6 +35,8 @@ export function assertSafeReceipt(r: Receipt): void {
   if (Number.isNaN(Date.parse(r.timestamp)) || r.timestamp.length > 30) fail("timestamp");
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(r.workspaceId)) fail("workspaceId");
   if (r.inferenceSource !== "in_cloud" && r.inferenceSource !== "on_device") fail("inferenceSource");
+  if (typeof r.cloudModel !== "string" || !/^[a-z0-9][a-z0-9.-]{0,63}$/.test(r.cloudModel)) fail("cloudModel");
+  if (!Number.isInteger(r.cloudAttempts) || r.cloudAttempts < 1 || r.cloudAttempts > 10) fail("cloudAttempts");
   if (!Array.isArray(r.detectorSources) || !r.detectorSources.every((s) => s === "rules" || s === "nano")) fail("detectorSources");
   if (!isCountMap(r.entityCounts, ENTITY_TYPES)) fail("entityCounts");
   if (!isCountMap(r.timings, TIMING_KEYS)) fail("timings");
