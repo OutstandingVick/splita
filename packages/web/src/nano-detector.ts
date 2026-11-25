@@ -84,6 +84,7 @@ export class NanoDetector implements OptionalDetector {
   private _lastRun: NanoRun | undefined;
   /** True once an on-device call has succeeded, so the model is loaded. */
   private warm = false;
+  private warming: Promise<DetectorStatus> | undefined;
 
   constructor(
     private readonly model: TextModel,
@@ -108,6 +109,8 @@ export class NanoDetector implements OptionalDetector {
   }
 
   async detect(text: string, known: readonly Span[] = []): Promise<Span[]> {
+    // A run that starts during warm-up waits for it, so the Nano pass begins on a loaded model.
+    if (this.warming) await this.warming;
     const warm = this.warm;
     const t0 = this.now();
     const chunks = chunkText(text, this.chunkChars);
@@ -125,12 +128,12 @@ export class NanoDetector implements OptionalDetector {
   }
 
   /** One trivial ONLY_ON_DEVICE call so the model is loaded before the first real detect. */
-  async warmUp(): Promise<DetectorStatus> {
-    await this.guard(async () => {
+  warmUp(): Promise<DetectorStatus> {
+    this.warming ??= this.guard(async () => {
       await this.model.generateContent(nanoPrompt("Warm-up."));
       return true;
-    }, false);
-    return this._status;
+    }, false).then(() => this._status);
+    return this.warming;
   }
 
   private async guard<T>(work: () => Promise<T>, fallback: T): Promise<T> {

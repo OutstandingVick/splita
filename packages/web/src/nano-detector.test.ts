@@ -94,6 +94,25 @@ describe("NanoDetector.warmUp", () => {
     expect(m.prompts).toHaveLength(1);
   });
 
+  it("is shared, and a detect started during warm-up waits for it", async () => {
+    const order: string[] = [];
+    const m: TextModel = {
+      async generateContent(p) {
+        const tag = p.includes("Warm-up.") ? "warm-up" : "detect";
+        order.push(`${tag}:start`);
+        await new Promise((r) => setTimeout(r, tag === "warm-up" ? 20 : 1));
+        order.push(`${tag}:end`);
+        return { response: { text: () => "[]" } };
+      },
+    };
+    const d = new NanoDetector(m);
+    const w1 = d.warmUp();
+    expect(d.warmUp()).toBe(w1);
+    await d.detect("Kunle");
+    expect(order).toEqual(["warm-up:start", "warm-up:end", "detect:start", "detect:end"]);
+    expect(d.lastRun?.warm).toBe(true);
+  });
+
   it("surfaces the SDK error", async () => {
     const d = new NanoDetector(failing(new Error("NotSupportedError: bad expectedOutputs")));
     expect(await d.warmUp()).toBe("error");
