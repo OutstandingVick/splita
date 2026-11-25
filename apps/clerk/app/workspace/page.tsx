@@ -5,6 +5,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useDeviceStatus } from "@/components/device-status";
 import { AnswerPanel } from "@/components/workspace/answer-panel";
 import { DocumentEditor } from "@/components/workspace/document-editor";
+import { ExtractionProbe, PROBE_QUESTION } from "@/components/workspace/extraction-probe";
 import { FailureNotice } from "@/components/workspace/failure-notice";
 import { MatterList } from "@/components/workspace/matter-list";
 import { ReceiptCard } from "@/components/workspace/receipt-card";
@@ -160,6 +161,13 @@ function Workspace() {
                     cloudText={outcome.result.cloudView.anonymizedText}
                     placeholders={outcome.result.cloudView.placeholders}
                     focusNano={focusNano}
+                  />
+                )}
+                {selected.id === DEMO_MATTER_ID && (
+                  <ExtractionProbe
+                    state={stateFor(`${selected.id}#probe`)}
+                    online={online}
+                    onRun={() => void ask(selected.id, selected.document, PROBE_QUESTION, online, `${selected.id}#probe`)}
                   />
                 )}
                 <ReceiptCard

@@ -20,34 +20,36 @@ export interface AskState {
 /** Runs the private pipeline for one matter, streaming stage progress. Offline: preview only. */
 export function useAsk() {
   const [byMatter, setByMatter] = useState<Record<string, AskState>>({});
-  const runId = useRef(0);
+  const runIds = useRef(new Map<string, number>());
 
   const patch = useCallback((matterId: string, f: (s: AskState) => AskState) => {
     setByMatter((all) => ({ ...all, [matterId]: f(all[matterId] ?? { busy: false, progress: initialProgress(), outcome: null }) }));
   }, []);
 
   const ask = useCallback(
-    async (matterId: string, text: string, question: string, online: boolean) => {
-      const id = ++runId.current;
-      patch(matterId, () => ({ busy: true, progress: initialProgress(), outcome: null }));
+    /** `slot` keeps a separate result for the same matter (e.g. the extraction probe). */
+    async (matterId: string, text: string, question: string, online: boolean, slot: string = matterId) => {
+      const id = (runIds.current.get(slot) ?? 0) + 1;
+      runIds.current.set(slot, id);
+      patch(slot, () => ({ busy: true, progress: initialProgress(), outcome: null }));
       try {
         const splita = getSplita();
         if (!online) {
           const preview = await splita.preview({ workspaceId: matterId, text, question });
-          patch(matterId, () => ({ busy: false, progress: previewProgress(), outcome: { kind: "preview", preview } }));
+          patch(slot, () => ({ busy: false, progress: previewProgress(), outcome: { kind: "preview", preview } }));
           return;
         }
         const result = await splita.run({
           workspaceId: matterId,
           text,
           question,
-          onStage: (e) => patch(matterId, (s) => ({ ...s, progress: applyStage(s.progress, e) })),
-          onCloudAttempt: (a) => patch(matterId, (s) => ({ ...s, progress: applyCloudAttempt(s.progress, a) })),
+          onStage: (e) => patch(slot, (s) => ({ ...s, progress: applyStage(s.progress, e) })),
+          onCloudAttempt: (a) => patch(slot, (s) => ({ ...s, progress: applyCloudAttempt(s.progress, a) })),
         });
-        if (id !== runId.current) return;
-        patch(matterId, (s) => ({ busy: false, progress: markSkipped(s.progress), outcome: { kind: "answer", result } }));
+        if (id !== runIds.current.get(slot)) return;
+        patch(slot, (s) => ({ busy: false, progress: markSkipped(s.progress), outcome: { kind: "answer", result } }));
       } catch (e) {
-        patch(matterId, (s) => ({ ...s, busy: false, outcome: { kind: "setup-error", message: e instanceof Error ? e.message : String(e) } }));
+        patch(slot, (s) => ({ ...s, busy: false, outcome: { kind: "setup-error", message: e instanceof Error ? e.message : String(e) } }));
       }
     },
     [patch],
