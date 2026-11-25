@@ -160,9 +160,9 @@ export default function PipelineTestPage() {
             {result.nanoError ? ` (${result.nanoError})` : ""}
             {result.nanoRun && (
               <>
-                {" "}· nano pass: <strong data-testid="nano-run">{result.nanoRun.warm ? "warm" : "cold"}</strong> {result.nanoRun.ms} ms, {result.nanoRun.prompted}/
-                {result.nanoRun.chunks} chunk{result.nanoRun.chunks === 1 ? "" : "s"} prompted
-                {result.nanoRun.prompted === 0 ? " (rules covered every name)" : ""}
+                {" "}· nano pass: <strong data-testid="nano-run">{result.nanoRun.warm ? "warm" : "cold"}</strong> {result.nanoRun.ms} ms,{" "}
+                {result.nanoRun.sentences} sentence{result.nanoRun.sentences === 1 ? "" : "s"} prompted
+                {result.nanoRun.sentences === 0 ? " (rules covered every name)" : ""}
               </>
             )}
           </p>

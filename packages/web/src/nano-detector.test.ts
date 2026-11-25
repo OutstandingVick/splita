@@ -29,12 +29,15 @@ describe("NanoDetector", () => {
     expect(d.status).toBe("ready");
   });
 
-  it("prompts once per chunk, one after another, and offsets later chunks", async () => {
-    const m = fake((p) => (p.includes("Paid Kunle") ? '[{"text":"Kunle","type":"PERSON"}]' : "[]"));
-    const text = `Met Tobenna Okafor here.\n\nPaid Kunle.`;
-    const [span] = await new NanoDetector(m, { chunkChars: 26 }).detect(text);
-    expect(m.prompts).toHaveLength(2);
-    expect(text.slice(span?.start, span?.end)).toBe("Kunle");
+  it("batches the selected sentences into one prompt and maps names back to source offsets", async () => {
+    const m = fake('[{"text":"Kunle","type":"PERSON"},{"text":"Tobenna Okafor","type":"PERSON"}]');
+    const text = "Met Tobenna Okafor here. It rained.\n\nPaid Kunle.";
+    const d = new NanoDetector(m);
+    const spans = await d.detect(text);
+    expect(m.prompts).toHaveLength(1);
+    expect(m.prompts[0]).not.toContain("It rained.");
+    expect(spans.map((s) => text.slice(s.start, s.end)).sort()).toEqual(["Kunle", "Tobenna Okafor"]);
+    expect(d.lastRun).toMatchObject({ sentences: 2, prompts: 1 });
   });
 
   it("lists the rule-found names in each chunk's prompt", async () => {
@@ -55,7 +58,7 @@ describe("NanoDetector", () => {
     expect(spans).toEqual([]);
     expect(m.prompts).toEqual([]);
     expect(d.status).toBe("ready");
-    expect(d.lastRun?.prompted).toBe(0);
+    expect(d.lastRun).toMatchObject({ sentences: 0, prompts: 0 });
   });
 
   it("maps Firebase api-not-enabled to unavailable", async () => {
@@ -82,12 +85,35 @@ describe("NanoDetector", () => {
   });
 });
 
+describe("NanoDetector on the employment letter", () => {
+  it("prompts only the sentence with names the rules missed", async () => {
+    const { RulesDetector } = await import("@splita/core");
+    const letter = `Dear Barr. Chukwuemeka Nwosu,
+
+I act for Mr. Adebayo Ogunleye (the Employee), who was employed by Zenith Bank Plc (the Employer) as a relationship manager from March 2019. Mr. Ogunleye was born on 14/06/1988 and earned a monthly salary of ₦850,000.
+
+On 3 October 2026, Zenith Bank Plc terminated Adebayo's appointment without notice. Please copy Ebiere Diepreye and Kwame Mensah of Lighthouse Advisory on all correspondence.
+
+Please advise on the prospects of a claim at the National Industrial Court in Lagos.
+
+Yours faithfully,
+Mrs. Funmilayo Bello`;
+    const known = await new RulesDetector().detect(letter);
+    const m = fake("[]");
+    const d = new NanoDetector(m);
+    await d.detect(letter, known);
+    expect(d.lastRun).toMatchObject({ sentences: 1, prompts: 1 });
+    expect(m.prompts[0]).toContain("Kwame Mensah of Lighthouse Advisory");
+    expect(m.prompts[0]).not.toContain("National Industrial Court");
+  });
+});
+
 describe("NanoDetector.lastRun", () => {
   it("marks the first run cold and later runs warm", async () => {
     let t = 0;
     const d = new NanoDetector(fake("[]"), { now: () => (t += 100) });
     await d.detect("Kunle");
-    expect(d.lastRun).toEqual({ warm: false, ms: 100, chunks: 1, prompted: 1 });
+    expect(d.lastRun).toEqual({ warm: false, ms: 100, sentences: 1, prompts: 1 });
     await d.detect("Kunle");
     expect(d.lastRun?.warm).toBe(true);
   });

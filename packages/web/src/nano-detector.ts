@@ -1,7 +1,8 @@
 import type { DetectorStatus, OptionalDetector, Span } from "@splita/core";
 import type { Chunk } from "./nano-parse.js";
 import { uncoveredCandidates } from "./name-candidates.js";
-import { chunkText, locateEntities, parseNanoEntities } from "./nano-parse.js";
+import { locateEntities, parseNanoEntities } from "./nano-parse.js";
+import { batchSentences, splitSentences } from "./sentences.js";
 
 /** The slice of Firebase AI Logic's GenerativeModel the detector needs (mockable in tests). */
 export interface TextModel {
@@ -19,10 +20,10 @@ export interface NanoDetectorOptions {
 export interface NanoRun {
   warm: boolean;
   ms: number;
-  /** Chunks in the document. */
-  chunks: number;
-  /** Chunks actually sent to Nano; the rest had no name candidate that rules missed. */
-  prompted: number;
+  /** Sentences sent to Nano: only those with a capitalized name candidate rules missed. */
+  sentences: number;
+  /** On-device calls made (sentences are batched into one prompt). */
+  prompts: number;
 }
 
 export class NanoTimeoutError extends Error {
@@ -117,19 +118,23 @@ export class NanoDetector implements OptionalDetector {
     if (this.warming) await this.warming;
     const warm = this.warm;
     const t0 = this.now();
-    const chunks = chunkText(text, this.chunkChars);
-    // Sequential on-device calls are slow; only prompt chunks with a name candidate rules missed.
-    const todo = chunks.filter((c) => uncoveredCandidates(c.text, c.offset, known).length > 0);
+    // On-device calls run one at a time, so send as little as possible: only the sentences with a
+    // capitalized name candidate that no rule span or allowlisted term covers, batched together.
+    const todo = splitSentences(text).filter((s) => uncoveredCandidates(s.text, s.offset, known).length > 0);
+    const batches = batchSentences(todo, this.chunkChars);
     const spans = await this.guard(async () => {
       const out: Span[] = [];
-      for (const chunk of todo) {
-        const res = await this.model.generateContent(nanoPrompt(chunk.text, namesInChunk(chunk, known)));
-        out.push(...locateEntities(chunk, parseNanoEntities(res.response.text())));
+      for (const batch of batches) {
+        const skip = [...new Set(batch.flatMap((s) => namesInChunk(s, known)))];
+        const res = await this.model.generateContent(nanoPrompt(batch.map((s) => s.text).join("\n"), skip));
+        const entities = parseNanoEntities(res.response.text());
+        for (const sentence of batch) out.push(...locateEntities(sentence, entities));
       }
       return out;
     }, []);
     // Only a pass that actually ran is worth timing; a skipped or failed one has no lastRun.
-    this._lastRun = this._status === "ready" ? { warm, ms: Math.round(this.now() - t0), chunks: chunks.length, prompted: todo.length } : undefined;
+    this._lastRun =
+      this._status === "ready" ? { warm, ms: Math.round(this.now() - t0), sentences: todo.length, prompts: batches.length } : undefined;
     return spans;
   }
 
