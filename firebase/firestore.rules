@@ -1,7 +1,43 @@
 rules_version = '2';
-// Placeholder: deny everything until receipts are designed (Phase 1+).
+
+// Receipts are metadata only (hashes, counts, enums, timings) and append-only.
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    match /users/{uid}/receipts/{receiptId} {
+      function isOwner() {
+        return request.auth != null && request.auth.uid == uid;
+      }
+
+      function isHex(s, n) {
+        return s is string && s.matches('^[0-9a-f]{' + string(n) + '}$');
+      }
+
+      function isValidReceipt(r) {
+        return r.keys().hasOnly(['id', 'timestamp', 'workspaceId', 'payloadHash', 'entityCounts',
+                                 'detectorSources', 'inferenceSource', 'timings', 'prevReceiptHash', 'hash'])
+          && r.keys().hasAll(['id', 'timestamp', 'workspaceId', 'payloadHash', 'entityCounts',
+                              'detectorSources', 'inferenceSource', 'timings', 'prevReceiptHash', 'hash'])
+          && r.id == receiptId && isHex(r.id, 32)
+          && isHex(r.hash, 64) && isHex(r.payloadHash, 64)
+          && (r.prevReceiptHash == null || isHex(r.prevReceiptHash, 64))
+          && r.timestamp is string && r.timestamp.size() <= 30
+          && r.workspaceId is string && r.workspaceId.matches('^[A-Za-z0-9_-]{1,64}$')
+          && r.inferenceSource in ['in_cloud', 'on_device']
+          && r.detectorSources is list && r.detectorSources.hasOnly(['rules', 'nano'])
+          && r.entityCounts is map
+          && r.entityCounts.keys().hasOnly(['PERSON', 'ORG', 'MONEY', 'EMAIL', 'PHONE',
+                                            'ACCOUNT_NUMBER', 'LOCATION', 'DATE_OF_BIRTH'])
+          && r.timings is map
+          && r.timings.keys().hasOnly(['detect', 'resolve', 'pseudonymize', 'reason', 'restore']);
+      }
+
+      allow read: if isOwner();
+      allow create: if isOwner() && isValidReceipt(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    // Everything else is closed.
     match /{document=**} {
       allow read, write: if false;
     }
