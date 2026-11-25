@@ -1,12 +1,13 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { useDeviceStatus } from "@/components/device-status";
 import { AnswerPanel } from "@/components/workspace/answer-panel";
 import { DocumentEditor } from "@/components/workspace/document-editor";
 import { MatterList } from "@/components/workspace/matter-list";
 import { PipelineStrip } from "@/components/workspace/pipeline-strip";
+import { SplitView } from "@/components/workspace/split-view";
 import { useAsk } from "@/lib/use-ask";
 import { useMatters } from "@/lib/use-matters";
 
@@ -17,6 +18,7 @@ function Workspace() {
   const { ask, stateFor } = useAsk();
   const state = stateFor(selected?.id);
   const outcome = state.outcome;
+  const [showCloud, setShowCloud] = useState(false);
 
   return (
     <div className="mx-auto grid max-w-7xl gap-6 px-6 py-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
@@ -46,7 +48,28 @@ function Workspace() {
             />
             <PipelineStrip progress={state.progress} />
             {outcome?.kind === "answer" && outcome.result.ok && (
-              <AnswerPanel matterId={selected.id} answer={outcome.result.answer} />
+              <>
+                <AnswerPanel matterId={selected.id} answer={outcome.result.answer} />
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold text-stone-800">What left this device</h2>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-stone-700">
+                    <input type="checkbox" role="switch" checked={showCloud} onChange={(e) => setShowCloud(e.target.checked)} className="peer sr-only" />
+                    <span
+                      aria-hidden
+                      className="relative h-5 w-9 rounded-full bg-stone-300 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-transform peer-checked:bg-accent-600 peer-checked:after:translate-x-4 peer-focus-visible:outline-2 peer-focus-visible:outline-accent-600"
+                    />
+                    Show what the cloud saw
+                  </label>
+                </div>
+                {showCloud && (
+                  <SplitView
+                    localText={outcome.result.localView.text}
+                    localSpans={outcome.result.localView.spans}
+                    cloudText={outcome.result.cloudView.anonymizedText}
+                    placeholders={outcome.result.cloudView.placeholders}
+                  />
+                )}
+              </>
             )}
           </>
         ) : (
