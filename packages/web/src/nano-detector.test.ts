@@ -64,3 +64,18 @@ describe("NanoDetector", () => {
     expect(d.status).toBe("unavailable");
   });
 });
+
+describe("NanoDetector.warmUp", () => {
+  it("sends one trivial prompt and reports ready", async () => {
+    const m = model("[]");
+    const d = new NanoDetector(m, { availability: available });
+    expect(await d.warmUp()).toBe("ready");
+    expect(m.prompts).toHaveLength(1);
+  });
+
+  it("reports unavailable without prompting", async () => {
+    const m = model("[]");
+    expect(await new NanoDetector(m, { availability: () => Promise.resolve("unavailable") }).warmUp()).toBe("unavailable");
+    expect(m.prompts).toEqual([]);
+  });
+});
