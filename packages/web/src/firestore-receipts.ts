@@ -1,6 +1,6 @@
 import type { Receipt, ReceiptPort } from "@splita/core";
 import { type Auth, signInAnonymously } from "firebase/auth";
-import { collection, doc, type Firestore, getDocs, limit, orderBy, query, setDoc, where } from "firebase/firestore";
+import { collection, doc, type Firestore, getDocs, limit, orderBy, query, setDoc, where } from "firebase/firestore/lite";
 import { assertSafeReceipt, RECEIPT_FIELDS } from "./receipt-safety.js";
 
 /** Signs in anonymously if needed; resolves to the uid receipts are stored under. */
@@ -16,7 +16,11 @@ function toReceipt(data: Record<string, unknown>): Receipt {
   return out as unknown as Receipt; // shape validated by assertSafeReceipt on write; rules enforce it server-side
 }
 
-/** Hash-chained receipts at users/{uid}/receipts/{receiptId}. Create-only; rules deny update/delete. */
+/**
+ * Hash-chained receipts at users/{uid}/receipts/{receiptId}. Create-only; rules deny update/delete.
+ * Uses Firestore Lite: each write or query is one HTTPS request, with no streaming-channel
+ * handshake on the first write, which keeps the Receipt stage well under a second.
+ */
 export class FirestoreReceipts implements ReceiptPort {
   /** Latest receipt per workspace, so the receipt stage can skip the head() round trip. */
   private readonly heads = new Map<string, Receipt>();

@@ -11,7 +11,7 @@ const fs = vi.hoisted(() => ({
   limit: vi.fn((n: number) => ({ limit: n })),
   query: vi.fn((c: unknown, ...parts: unknown[]) => ({ c, parts })),
 }));
-vi.mock("firebase/firestore", () => fs);
+vi.mock("firebase/firestore/lite", () => fs);
 vi.mock("firebase/auth", () => ({ signInAnonymously: vi.fn(async () => ({ user: { uid: "anon-1" } })) }));
 
 const { FirestoreReceipts, ensureAnonymousUser } = await import("./firestore-receipts.js");

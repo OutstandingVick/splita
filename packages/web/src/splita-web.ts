@@ -13,7 +13,7 @@ import {
 } from "@splita/core";
 import type { AI } from "firebase/ai";
 import type { Auth } from "firebase/auth";
-import type { Firestore } from "firebase/firestore";
+import type { Firestore } from "firebase/firestore/lite";
 import { CLOUD_MODEL, type CloudAttempt, createCloudModel, FALLBACK_CLOUD_MODEL, FirebaseReasoner } from "./firebase-reasoner.js";
 import { ensureAnonymousUser, FirestoreReceipts } from "./firestore-receipts.js";
 import { WebCryptoHasher } from "./hasher.js";

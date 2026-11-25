@@ -9,7 +9,7 @@ import {
 } from "firebase/app-check";
 import { type AI, getAI, GoogleAIBackend } from "firebase/ai";
 import { type Auth, getAuth } from "firebase/auth";
-import { type Firestore, getFirestore } from "firebase/firestore";
+import { type Firestore, getFirestore } from "firebase/firestore/lite";
 
 declare global {
   // App Check reads this global before initializeAppCheck. `true` makes the SDK
