@@ -7,6 +7,7 @@ import { AnswerPanel } from "@/components/workspace/answer-panel";
 import { DocumentEditor } from "@/components/workspace/document-editor";
 import { MatterList } from "@/components/workspace/matter-list";
 import { ReceiptCard } from "@/components/workspace/receipt-card";
+import { VerifyButton } from "@/components/workspace/verify-button";
 import { PipelineStrip } from "@/components/workspace/pipeline-strip";
 import { SplitView } from "@/components/workspace/split-view";
 import { useAsk } from "@/lib/use-ask";
@@ -62,7 +63,6 @@ function Workspace() {
                     Show what the cloud saw
                   </label>
                 </div>
-                <ReceiptCard receipt={outcome.result.receipt} mode={outcome.result.mode} />
                 {showCloud && (
                   <SplitView
                     localText={outcome.result.localView.text}
@@ -71,6 +71,12 @@ function Workspace() {
                     placeholders={outcome.result.cloudView.placeholders}
                   />
                 )}
+                <ReceiptCard
+                  key={outcome.result.receipt.id}
+                  receipt={outcome.result.receipt}
+                  mode={outcome.result.mode}
+                  verify={<VerifyButton key={outcome.result.receipt.id} receipt={outcome.result.receipt} payload={outcome.result.cloudView.anonymizedText} />}
+                />
               </>
             )}
           </>
