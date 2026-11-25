@@ -25,7 +25,10 @@ describe("FirebaseReasoner", () => {
   });
 
   it("instructs the model to keep placeholders verbatim", () => {
-    expect(REASONER_SYSTEM_INSTRUCTION).toMatch(/verbatim/);
+    expect(REASONER_SYSTEM_INSTRUCTION).toMatch(/Copy every token exactly as written/);
+    for (const section of ["Legal basis", "Amounts", "Next steps", "Confirm with a lawyer"]) {
+      expect(REASONER_SYSTEM_INSTRUCTION).toContain(section);
+    }
     expect(REASONER_SYSTEM_INSTRUCTION).toMatch(/Never guess/);
   });
 });
