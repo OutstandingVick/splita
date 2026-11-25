@@ -1,4 +1,4 @@
-import type { InferenceSource, ReasonerPort, ReasonerResult } from "@splita/core";
+import type { InferenceSource, ReasonerPort, ReasonerResult, ReasonOptions } from "@splita/core";
 import { type AI, getGenerativeModel, InferenceMode, ThinkingLevel } from "firebase/ai";
 
 export const CLOUD_MODEL = "gemini-3.5-flash";
@@ -27,9 +27,15 @@ Answer in Markdown, concisely: at most about 300 words in total, short bullet po
 
 Be precise and practical; no preamble, no repetition between sections. Do not invent facts that are not in the document.`;
 
-/** The slice of Firebase's GenerativeModel the reasoner needs. */
+interface CloudResponse {
+  text(): string;
+  inferenceSource?: InferenceSource;
+}
+
+/** The slice of Firebase's GenerativeModel the reasoner needs. Streaming is optional. */
 export interface CloudModel {
-  generateContent(prompt: string): Promise<{ response: { text(): string; inferenceSource?: InferenceSource } }>;
+  generateContent(prompt: string): Promise<{ response: CloudResponse }>;
+  generateContentStream?(prompt: string): Promise<{ stream: AsyncIterable<{ text(): string }>; response: Promise<CloudResponse> }>;
 }
 
 /** HTTP statuses worth retrying: rate limit and transient server errors. */
@@ -83,6 +89,14 @@ export interface ReasonerOptions {
 }
 
 const realSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+function safeCall(f: () => void): void {
+  try {
+    f();
+  } catch {
+    // ignore listener errors
+  }
+}
 
 function retryReason(e: unknown): CloudAttempt["retryAfter"] {
   if (e instanceof CloudTimeoutError) return "timeout";
@@ -145,11 +159,34 @@ export class FirebaseReasoner implements ReasonerPort {
     this.onAttempt = listener;
   }
 
-  async reason(anonymizedPrompt: string): Promise<ReasonerResult> {
+  /**
+   * Streams the answer; each chunk (and the first) must arrive within the timeout. Returns the
+   * full text and the SDK's inferenceSource.
+   */
+  private async streamOnce(model: CloudModel, prompt: string, onText: (t: string) => void): Promise<{ text: string; source: InferenceSource }> {
+    if (!model.generateContentStream) throw new Error("streaming not supported");
+    const result = await this.withTimeout(model.generateContentStream(prompt));
+    const it = result.stream[Symbol.asyncIterator]();
+    let text = "";
+    for (;;) {
+      const next = await this.withTimeout(it.next());
+      if (next.done) break;
+      const piece = next.value.text();
+      if (piece) {
+        text += piece;
+        onText(text);
+      }
+    }
+    const response = await this.withTimeout(result.response);
+    return { text: text || response.text(), source: response.inferenceSource ?? "in_cloud" };
+  }
+
+  async reason(anonymizedPrompt: string, options: ReasonOptions = {}): Promise<ReasonerResult> {
     const t0 = this.now();
     let attempts = 0;
     let lastError: unknown;
-    const call = async (model: CloudModel, name: string): Promise<ReasonerResult> => {
+    const onText = options.onText;
+    const announce = (name: string) => {
       attempts++;
       const retryAfter = lastError === undefined ? undefined : retryReason(lastError);
       try {
@@ -157,14 +194,31 @@ export class FirebaseReasoner implements ReasonerPort {
       } catch {
         // UI listeners must not affect the call.
       }
+    };
+    const done = (text: string, source: InferenceSource, name: string): ReasonerResult => ({
+      text,
+      source,
+      latencyMs: Math.round(this.now() - t0),
+      attempts,
+      model: name,
+    });
+    const call = async (model: CloudModel, name: string): Promise<ReasonerResult> => {
+      announce(name);
+      if (onText && model.generateContentStream) {
+        try {
+          const r = await this.streamOnce(model, anonymizedPrompt, onText);
+          return done(r.text, r.source, name);
+        } catch (e) {
+          // Streaming failed: discard any partial text and make the same request without streaming.
+          lastError = e;
+          safeCall(() => onText(""));
+          announce(name);
+        }
+      }
       const result = await this.withTimeout(model.generateContent(anonymizedPrompt));
-      return {
-        text: result.response.text(),
-        source: result.response.inferenceSource ?? "in_cloud",
-        latencyMs: Math.round(this.now() - t0),
-        attempts,
-        model: name,
-      };
+      const text = result.response.text();
+      if (onText) safeCall(() => onText(text));
+      return done(text, result.response.inferenceSource ?? "in_cloud", name);
     };
 
     for (let retry = 0; ; retry++) {

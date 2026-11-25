@@ -43,6 +43,8 @@ export interface SplitaRunInput {
   onStage?: (event: StageEvent) => void;
   /** Every cloud call: first try, retries (with reason) and the fallback. */
   onCloudAttempt?: (attempt: CloudAttempt) => void;
+  /** Streaming answer: anonymized text so far and its on-device restoration (complete placeholders only). */
+  onAnswer?: (partial: { cloud: string; restored: string }) => void;
 }
 
 export type SplitaRunResult = SplitaResult & {
@@ -144,7 +146,7 @@ export function createSplitaWeb(opts: SplitaWebOptions): SplitaWeb {
       return nano?.lastError;
     },
     warmUpNano: () => (nano ? warmUpNano(nano) : Promise.resolve<DetectorStatus>("unavailable")),
-    async run({ workspaceId, text, question, onStage, onCloudAttempt }) {
+    async run({ workspaceId, text, question, onStage, onCloudAttempt, onAnswer }) {
       reasoner.setAttemptListener(onCloudAttempt);
       // While the cloud model thinks, keep the Firestore connection warm with a tiny read, so the
       // receipt write right after does not pay for a fresh connection.
@@ -157,6 +159,7 @@ export function createSplitaWeb(opts: SplitaWebOptions): SplitaWeb {
           } else if (e.stage === "reason") stopWarm();
           onStage?.(e);
         },
+        ...(onAnswer ? { onAnswer } : {}),
       };
       const result = await runSplita({ workspaceId, text: composePrompt(question, text) }, deps, hooks).finally(() => {
         stopWarm();

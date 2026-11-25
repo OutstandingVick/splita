@@ -156,3 +156,49 @@ describe("FirebaseReasoner attempt events", () => {
     expect(seen).toEqual(["1:gemini-3.5-flash:-", "2:gemini-3.5-flash:rate-limit", "3:gemini-3.5-flash:server-error", "4:b:server-error"]);
   });
 });
+
+describe("FirebaseReasoner streaming", () => {
+  const streamingModel = (pieces: string[], failAfter?: number): CloudModel & { plain: number } => {
+    const m = {
+      plain: 0,
+      async generateContent() {
+        m.plain++;
+        return { response: { text: () => pieces.join(""), inferenceSource: "in_cloud" as const } };
+      },
+      async generateContentStream() {
+        async function* gen() {
+          for (const [i, p] of pieces.entries()) {
+            if (failAfter !== undefined && i === failAfter) throw Object.assign(new Error("stream broke [503 ]"), { customErrorData: { status: 503 } });
+            yield { text: () => p };
+          }
+        }
+        return { stream: gen(), response: Promise.resolve({ text: () => pieces.join(""), inferenceSource: "in_cloud" as const }) };
+      },
+    };
+    return m;
+  };
+
+  it("streams text so far and returns the full answer", async () => {
+    const seen: string[] = [];
+    const m = streamingModel(["EMPLOYEE_1 ", "is owed."]);
+    const r = await new FirebaseReasoner(m).reason("x", { onText: (t) => seen.push(t) });
+    expect(seen).toEqual(["EMPLOYEE_1 ", "EMPLOYEE_1 is owed."]);
+    expect(r).toMatchObject({ text: "EMPLOYEE_1 is owed.", attempts: 1, source: "in_cloud" });
+    expect(m.plain).toBe(0);
+  });
+
+  it("falls back to the non-streaming call when the stream fails, resetting partial text", async () => {
+    const seen: string[] = [];
+    const m = streamingModel(["EMPLOYEE_1 ", "is owed."], 1);
+    const r = await new FirebaseReasoner(m).reason("x", { onText: (t) => seen.push(t) });
+    expect(seen).toEqual(["EMPLOYEE_1 ", "", "EMPLOYEE_1 is owed."]);
+    expect(r).toMatchObject({ text: "EMPLOYEE_1 is owed.", attempts: 2 });
+    expect(m.plain).toBe(1);
+  });
+
+  it("does not stream without a listener", async () => {
+    const m = streamingModel(["ok"]);
+    await new FirebaseReasoner(m).reason("x");
+    expect(m.plain).toBe(1);
+  });
+});
