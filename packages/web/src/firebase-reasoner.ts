@@ -24,21 +24,73 @@ export interface CloudModel {
   generateContent(prompt: string): Promise<{ response: { text(): string; inferenceSource?: InferenceSource } }>;
 }
 
-/** Cloud reasoner: Firebase AI Logic hybrid model pinned to ONLY_IN_CLOUD. Only ever sees anonymized text. */
+/** HTTP statuses worth retrying: rate limit and transient server errors. */
+export const RETRYABLE_STATUSES = [429, 500, 503] as const;
+
+/** Status from a Firebase AIError (customErrorData.status) or, failing that, its "[503 ...]" message. */
+export function errorStatus(e: unknown): number | undefined {
+  const status = (e as { customErrorData?: { status?: unknown } } | null)?.customErrorData?.status;
+  if (typeof status === "number") return status;
+  const m = e instanceof Error ? /\[(\d{3})\b/.exec(e.message) : null;
+  return m?.[1] ? Number(m[1]) : undefined;
+}
+
+export const isRetryable = (e: unknown): boolean => (RETRYABLE_STATUSES as readonly number[]).includes(errorStatus(e) ?? 0);
+
+export interface ReasonerOptions {
+  now?: () => number;
+  /** Backoff before each retry, before jitter. Length = retries. Default ~1s, 2s. */
+  backoffMs?: readonly number[];
+  sleep?: (ms: number) => Promise<void>;
+  /** 0..1, for jitter. */
+  random?: () => number;
+}
+
+const realSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/** Exponential backoff with ±25% jitter. */
+export function withJitter(ms: number, random: () => number): number {
+  return Math.round(ms * (0.75 + random() * 0.5));
+}
+
+/**
+ * Cloud reasoner: Firebase AI Logic hybrid model pinned to ONLY_IN_CLOUD. Only ever sees anonymized text.
+ * Retries 429/500/503 with exponential backoff and jitter; any other error fails immediately.
+ */
 export class FirebaseReasoner implements ReasonerPort {
+  private readonly now: () => number;
+  private readonly backoffMs: readonly number[];
+  private readonly sleep: (ms: number) => Promise<void>;
+  private readonly random: () => number;
+
   constructor(
     private readonly model: CloudModel,
-    private readonly now: () => number = () => performance.now(),
-  ) {}
+    opts: ReasonerOptions | (() => number) = {},
+  ) {
+    const o = typeof opts === "function" ? { now: opts } : opts;
+    this.now = o.now ?? (() => performance.now());
+    this.backoffMs = o.backoffMs ?? [1000, 2000];
+    this.sleep = o.sleep ?? realSleep;
+    this.random = o.random ?? Math.random;
+  }
 
   async reason(anonymizedPrompt: string): Promise<ReasonerResult> {
     const t0 = this.now();
-    const result = await this.model.generateContent(anonymizedPrompt);
-    return {
-      text: result.response.text(),
-      source: result.response.inferenceSource ?? "in_cloud",
-      latencyMs: Math.round(this.now() - t0),
-    };
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const result = await this.model.generateContent(anonymizedPrompt);
+        return {
+          text: result.response.text(),
+          source: result.response.inferenceSource ?? "in_cloud",
+          latencyMs: Math.round(this.now() - t0),
+          attempts: attempt,
+        };
+      } catch (e) {
+        const delay = this.backoffMs[attempt - 1];
+        if (delay === undefined || !isRetryable(e)) throw e;
+        await this.sleep(withJitter(delay, this.random));
+      }
+    }
   }
 }
 

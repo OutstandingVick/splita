@@ -51,6 +51,10 @@ export interface ReasonerResult {
   text: string;
   source: InferenceSource;
   latencyMs: number;
+  /** Total cloud calls made, including retries. Defaults to 1. */
+  attempts?: number;
+  /** Model that produced the answer. */
+  model?: string;
 }
 
 export type Stage = "detect" | "resolve" | "pseudonymize" | "reason" | "restore" | "receipt";
