@@ -17,18 +17,23 @@ export type StepStatus = "pending" | "active" | "done" | "error" | "skipped";
 export interface Progress {
   steps: Record<StepId, { status: StepStatus; ms?: number }>;
   cloud: CloudAttempt | null;
+  /** Model of the first cloud attempt; a later attempt on another model is the fallback. */
+  primaryModel: string | null;
+  /** When the Cloud stage started (performance.now()), for the live elapsed counter. */
+  cloudStartedAt: number | null;
 }
 
 export function initialProgress(): Progress {
   const steps = {} as Progress["steps"];
   for (const s of STEPS) steps[s.id] = { status: "pending" };
-  return { steps, cloud: null };
+  return { steps, cloud: null, primaryModel: null, cloudStartedAt: null };
 }
 
 const set = (p: Progress, id: StepId, v: Progress["steps"][StepId]): Progress => ({ ...p, steps: { ...p.steps, [id]: v } });
 
 /** Folds a pipeline event into the strip. `resolve` counts toward Pseudonymize; Verify's time is not double-counted. */
-export function applyStage(p: Progress, e: StageEvent): Progress {
+export function applyStage(p: Progress, e: StageEvent, now: () => number = () => performance.now()): Progress {
+  if (e.stage === "reason" && e.phase === "start") p = { ...p, cloudStartedAt: now() };
   switch (e.stage) {
     case "resolve":
       if (e.phase === "start") return set(p, "pseudonymize", { status: "active" });
@@ -53,7 +58,16 @@ export function applyStage(p: Progress, e: StageEvent): Progress {
 }
 
 export function applyCloudAttempt(p: Progress, a: CloudAttempt): Progress {
-  return { ...p, cloud: a };
+  return { ...p, cloud: a, primaryModel: p.primaryModel ?? a.model };
+}
+
+/** Short inline status for the Cloud step: "12s", "12s · retry 2", "12s · fallback gemini-3.5-flash-lite". */
+export function cloudInline(p: Progress, nowMs: number): string {
+  const secs = p.cloudStartedAt === null ? 0 : Math.max(0, Math.floor((nowMs - p.cloudStartedAt) / 1000));
+  const a = p.cloud;
+  if (!a || a.attempt === 1) return `${secs}s`;
+  if (p.primaryModel && a.model !== p.primaryModel) return `${secs}s · fallback ${a.model}`;
+  return `${secs}s · retry ${a.attempt - 1}`;
 }
 
 /** After a fail-closed error, later steps never ran. */
@@ -65,9 +79,10 @@ export function markSkipped(p: Progress): Progress {
   return out;
 }
 
-export function cloudStatusText(a: CloudAttempt | null): string | null {
+export function cloudStatusText(a: CloudAttempt | null, primaryModel: string | null = null): string | null {
   if (!a) return null;
   if (a.attempt === 1) return `Asking ${a.model}…`;
+  if (primaryModel && a.model !== primaryModel) return `${primaryModel} kept failing, so Splita switched to the fallback ${a.model}…`;
   const why = { "rate-limit": "rate limited", "server-error": "server busy", timeout: "slow response", unavailable: "model unavailable" }[
     a.retryAfter ?? "server-error"
   ];

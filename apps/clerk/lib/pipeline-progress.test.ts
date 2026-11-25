@@ -1,8 +1,8 @@
 import type { StageEvent } from "@splita/core";
 import { describe, expect, it } from "vitest";
-import { applyStage, cloudStatusText, initialProgress, markSkipped, previewProgress } from "./pipeline-progress";
+import { applyCloudAttempt, applyStage, cloudInline, cloudStatusText, initialProgress, markSkipped, previewProgress } from "./pipeline-progress";
 
-const run = (events: StageEvent[]) => events.reduce(applyStage, initialProgress());
+const run = (events: StageEvent[]) => events.reduce((p, e) => applyStage(p, e), initialProgress());
 
 describe("pipeline progress", () => {
   it("folds resolve into pseudonymize and keeps verify separate", () => {
@@ -39,5 +39,16 @@ describe("pipeline progress", () => {
     const p = previewProgress();
     expect(p.steps.verify.status).toBe("done");
     expect(p.steps.reason.status).toBe("skipped");
+  });
+
+  it("shows live elapsed seconds with retry and fallback inline", () => {
+    let p = applyStage(initialProgress(), { stage: "reason", phase: "start" }, () => 1000);
+    expect(cloudInline(p, 13_400)).toBe("12s");
+    p = applyCloudAttempt(p, { attempt: 1, model: "gemini-3.5-flash" });
+    p = applyCloudAttempt(p, { attempt: 2, model: "gemini-3.5-flash", retryAfter: "timeout" });
+    expect(cloudInline(p, 16_000)).toBe("15s · retry 1");
+    p = applyCloudAttempt(p, { attempt: 4, model: "gemini-3.5-flash-lite", retryAfter: "server-error" });
+    expect(cloudInline(p, 40_000)).toBe("39s · fallback gemini-3.5-flash-lite");
+    expect(cloudStatusText(p.cloud, p.primaryModel)).toContain("switched to the fallback gemini-3.5-flash-lite");
   });
 });

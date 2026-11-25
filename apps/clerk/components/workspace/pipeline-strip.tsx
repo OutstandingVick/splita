@@ -1,4 +1,7 @@
-import { cloudStatusText, type Progress, STEPS, type StepStatus } from "@/lib/pipeline-progress";
+"use client";
+
+import { useEffect, useState } from "react";
+import { cloudInline, cloudStatusText, type Progress, STEPS, type StepStatus } from "@/lib/pipeline-progress";
 
 const DOT: Record<StepStatus, string> = {
   pending: "border-stone-300 bg-white",
@@ -18,7 +21,14 @@ const LABEL: Record<StepStatus, string> = {
 
 /** Fixed-height strip: it never changes size while the pipeline runs, so nothing below jumps. */
 export function PipelineStrip({ progress }: { progress: Progress }) {
-  const cloud = progress.steps.reason.status === "active" ? cloudStatusText(progress.cloud) : null;
+  const cloudActive = progress.steps.reason.status === "active";
+  const cloud = cloudActive ? cloudStatusText(progress.cloud, progress.primaryModel) : null;
+  const [now, setNow] = useState(() => performance.now());
+  useEffect(() => {
+    if (!cloudActive) return;
+    const t = setInterval(() => setNow(performance.now()), 250);
+    return () => clearInterval(t);
+  }, [cloudActive]);
   return (
     <div className="rounded-xl border border-stone-200 bg-white px-4 py-3" aria-label="Pipeline progress">
       <ol className="grid grid-cols-6 gap-2">
@@ -34,8 +44,16 @@ export function PipelineStrip({ progress }: { progress: Progress }) {
               )}
               <span aria-hidden className={`relative z-10 block h-3.5 w-3.5 rounded-full border-2 transition-colors ${DOT[st.status]}`} />
               <span className={`mt-2 block text-xs font-medium ${LABEL[st.status]}`}>{s.label}</span>
-              <span className="block h-4 font-mono text-[11px] tabular-nums text-stone-500">
-                {st.status === "done" && st.ms !== undefined ? `${st.ms.toLocaleString()} ms` : st.status === "active" ? "running" : st.status === "error" ? "stopped" : ""}
+              <span className="block h-4 truncate font-mono text-[11px] tabular-nums text-stone-500" data-testid={`step-${s.id}-meta`}>
+                {st.status === "done" && st.ms !== undefined
+                  ? `${st.ms.toLocaleString()} ms`
+                  : st.status === "active"
+                    ? s.id === "reason"
+                      ? cloudInline(progress, now)
+                      : "running"
+                    : st.status === "error"
+                      ? "stopped"
+                      : ""}
               </span>
               <span className="sr-only">{`${s.label}: ${st.status}`}</span>
             </li>
