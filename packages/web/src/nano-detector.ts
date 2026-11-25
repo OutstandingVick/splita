@@ -121,7 +121,8 @@ export class NanoDetector implements OptionalDetector {
       });
       return perChunk.flat();
     }, []);
-    this._lastRun = { warm, ms: Math.round(this.now() - t0), chunks: chunks.length };
+    // Only a pass that actually ran is worth timing; a skipped or failed one has no lastRun.
+    this._lastRun = this._status === "ready" ? { warm, ms: Math.round(this.now() - t0), chunks: chunks.length } : undefined;
     return spans;
   }
 

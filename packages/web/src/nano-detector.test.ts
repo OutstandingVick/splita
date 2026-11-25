@@ -102,6 +102,14 @@ describe("NanoDetector.lastRun", () => {
   });
 });
 
+describe("NanoDetector.lastRun when skipped", () => {
+  it("is undefined when Nano is unavailable", async () => {
+    const d = new NanoDetector(fake("[]", { availability: "unavailable" }));
+    await d.detect("Kunle");
+    expect(d.lastRun).toBeUndefined();
+  });
+});
+
 describe("NanoDetector.warmUp", () => {
   it("creates the base session without prompting and reports ready", async () => {
     const s = fake("[]");
