@@ -25,7 +25,8 @@ export function DocumentEditor({
   const [fileError, setFileError] = useState<string | null>(null);
   const docId = useId();
   const qId = useId();
-  const canAsk = online && !busy && document.trim().length > 0;
+  // Offline the button runs an on-device preview instead: detection works, nothing is sent.
+  const canAsk = !busy && document.trim().length > 0;
 
   async function onFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -87,14 +88,14 @@ export function DocumentEditor({
           type="button"
           onClick={onAsk}
           disabled={!canAsk}
-          className="shrink-0 rounded-xl bg-accent-700 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-accent-800 disabled:cursor-not-allowed disabled:bg-stone-300"
+          className={`shrink-0 rounded-xl px-5 py-2.5 text-sm font-medium shadow-sm disabled:cursor-not-allowed disabled:bg-stone-300 ${online ? "bg-accent-700 text-white hover:bg-accent-800" : "border border-stone-300 bg-white text-stone-800 hover:bg-stone-50"}`}
         >
-          {busy ? "Working…" : "Ask privately"}
+          {busy ? "Working…" : online ? "Ask privately" : "Preview on device"}
         </button>
       </div>
       <p className="h-4 text-xs text-stone-500">
         {!online
-          ? "You're offline. Splita shows what would be sent, but nothing leaves this device until you reconnect."
+          ? "You're offline. Asking is paused; Preview shows exactly what would be sent, and nothing leaves this device."
           : "The question is anonymized together with the document."}
       </p>
     </div>

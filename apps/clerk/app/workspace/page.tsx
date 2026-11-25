@@ -49,6 +49,20 @@ function Workspace() {
               online={online}
             />
             <PipelineStrip progress={state.progress} />
+            {outcome?.kind === "preview" && (
+              <>
+                <div role="status" className="rounded-xl border border-stone-200 bg-white p-4 text-sm text-stone-700">
+                  <strong className="font-semibold">Offline preview. Nothing was sent.</strong> Detection ran on this device; this is exactly
+                  what the cloud would receive once you&apos;re back online and press Ask privately.
+                </div>
+                <SplitView
+                  localText={outcome.preview.localView.text}
+                  localSpans={outcome.preview.localView.spans}
+                  cloudText={outcome.preview.anonymizedText}
+                  placeholders={outcome.preview.placeholders}
+                />
+              </>
+            )}
             {outcome?.kind === "answer" && outcome.result.ok && (
               <>
                 <AnswerPanel matterId={selected.id} answer={outcome.result.answer} />
