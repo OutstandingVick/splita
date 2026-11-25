@@ -14,7 +14,7 @@ export interface NanoDetectorOptions {
   now?: () => number;
 }
 
-/** How the last detect() went: `warm` means the base session already existed when it started. */
+/** How the last detect() went: `warm` means an on-device call had already succeeded, so the model was loaded. */
 export interface NanoRun {
   warm: boolean;
   ms: number;

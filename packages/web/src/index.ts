@@ -8,3 +8,4 @@ export { FirebaseReasoner, createCloudModel, CLOUD_MODEL, REASONER_SYSTEM_INSTRU
 export { IndexedDBVault, VAULT_DB } from "./indexeddb-vault.js";
 export { FirestoreReceipts, ensureAnonymousUser } from "./firestore-receipts.js";
 export { assertSafeReceipt, ReceiptSafetyError, RECEIPT_FIELDS } from "./receipt-safety.js";
+export { OnDeviceQueue, queued } from "./on-device-queue.js";
