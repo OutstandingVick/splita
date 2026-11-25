@@ -54,8 +54,17 @@ export interface NamedCloudModel {
   model: CloudModel;
 }
 
+/** One cloud call about to start: attempt 1 is the first try; `retryAfter` says why it is a retry. */
+export interface CloudAttempt {
+  attempt: number;
+  model: string;
+  retryAfter?: "rate-limit" | "server-error" | "timeout" | "unavailable";
+}
+
 export interface ReasonerOptions {
   now?: () => number;
+  /** Called before every cloud call (first try, retries, fallback). */
+  onAttempt?: (attempt: CloudAttempt) => void;
   /** Name of the primary model, recorded in the result. */
   modelName?: string;
   /** Tried after the primary's retries run out (or it reports 404). Same ONLY_IN_CLOUD mode, same payload. */
@@ -72,6 +81,14 @@ export interface ReasonerOptions {
 }
 
 const realSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+function retryReason(e: unknown): CloudAttempt["retryAfter"] {
+  if (e instanceof CloudTimeoutError) return "timeout";
+  const status = errorStatus(e);
+  if (status === 429) return "rate-limit";
+  if (status === 404) return "unavailable";
+  return "server-error";
+}
 
 /** Exponential backoff with ±25% jitter. */
 export function withJitter(ms: number, random: () => number): number {
@@ -91,6 +108,7 @@ export class FirebaseReasoner implements ReasonerPort {
   private readonly fallback: NamedCloudModel | undefined;
   private readonly fallbackDelayMs: number;
   private readonly timeoutMs: number;
+  private onAttempt: ((a: CloudAttempt) => void) | undefined;
 
   constructor(
     private readonly model: CloudModel,
@@ -105,6 +123,7 @@ export class FirebaseReasoner implements ReasonerPort {
     this.fallback = o.fallback;
     this.fallbackDelayMs = o.fallbackDelayMs ?? 4000;
     this.timeoutMs = o.timeoutMs ?? 30_000;
+    this.onAttempt = o.onAttempt;
   }
 
   private async withTimeout<T>(p: Promise<T>): Promise<T> {
@@ -119,11 +138,23 @@ export class FirebaseReasoner implements ReasonerPort {
     }
   }
 
+  /** Replace the attempt listener (e.g. per run). */
+  setAttemptListener(listener: ((a: CloudAttempt) => void) | undefined): void {
+    this.onAttempt = listener;
+  }
+
   async reason(anonymizedPrompt: string): Promise<ReasonerResult> {
     const t0 = this.now();
     let attempts = 0;
+    let lastError: unknown;
     const call = async (model: CloudModel, name: string): Promise<ReasonerResult> => {
       attempts++;
+      const retryAfter = lastError === undefined ? undefined : retryReason(lastError);
+      try {
+        this.onAttempt?.({ attempt: attempts, model: name, ...(retryAfter ? { retryAfter } : {}) });
+      } catch {
+        // UI listeners must not affect the call.
+      }
       const result = await this.withTimeout(model.generateContent(anonymizedPrompt));
       return {
         text: result.response.text(),
@@ -138,6 +169,7 @@ export class FirebaseReasoner implements ReasonerPort {
       try {
         return await call(this.model, this.modelName);
       } catch (e) {
+        lastError = e;
         const delay = this.backoffMs[retry];
         if (delay !== undefined && isRetryable(e)) {
           await this.sleep(withJitter(delay, this.random));

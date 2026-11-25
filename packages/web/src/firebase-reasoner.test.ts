@@ -140,3 +140,17 @@ describe("FirebaseReasoner timeout", () => {
     expect((await new FirebaseReasoner(slowThenFast, quick).reason("x")).attempts).toBe(2);
   });
 });
+
+describe("FirebaseReasoner attempt events", () => {
+  it("reports the first try, each retry with its reason, and the fallback", async () => {
+    const seen: string[] = [];
+    const r = new FirebaseReasoner(flaky([429, 503, 500]), {
+      sleep: async () => {},
+      random: () => 0.5,
+      fallback: { name: "b", model: flaky([]) },
+      onAttempt: (a) => seen.push(`${a.attempt}:${a.model}:${a.retryAfter ?? "-"}`),
+    });
+    await r.reason("x");
+    expect(seen).toEqual(["1:gemini-3.5-flash-lite:-", "2:gemini-3.5-flash-lite:rate-limit", "3:gemini-3.5-flash-lite:server-error", "4:b:server-error"]);
+  });
+});
