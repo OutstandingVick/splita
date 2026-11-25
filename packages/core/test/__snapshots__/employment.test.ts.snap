@@ -1,0 +1,18 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`fixture: employment contract dispute > anonymized output matches the reviewed snapshot 1`] = `
+"RE: WRONGFUL TERMINATION — EMPLOYEE_1 v. EMPLOYER_1
+
+Dear PERSON_1,
+
+I act for EMPLOYEE_1 (the Employee), who was employed by EMPLOYER_1 (the Employer) as a relationship manager from March 2019. EMPLOYEE_1 was born on DOB_1 and earned a monthly salary of AMOUNT_NGN_MID_1.
+
+On 3 October 2026, EMPLOYER_1 terminated EMPLOYEE_1's appointment without notice. His end-of-service benefit of AMOUNT_NGN_LARGE_1 and an outstanding leave allowance of AMOUNT_NGN_SMALL_1 remain unpaid. The Employer also withheld AMOUNT_NGN_MID_2 as a "training bond".
+
+EMPLOYEE_1 can be reached on PHONE_1 or EMAIL_1. His salary account is ACCOUNT_1.
+
+Please advise on the prospects of a claim at the National Industrial Court.
+
+Yours faithfully,
+PERSON_2"
+`;
