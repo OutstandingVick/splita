@@ -59,20 +59,50 @@ export interface SplitaFailure {
 
 export type SplitaResult = SplitaSuccess | SplitaFailure;
 
+/** Stages a UI can show. `verify` is the leak guard (timed inside `pseudonymize` in the receipt). */
+export type ProgressStage = Stage | "verify";
+
+export type StageEvent =
+  | { stage: ProgressStage; phase: "start" }
+  | { stage: ProgressStage; phase: "done"; ms: number }
+  | { stage: ProgressStage; phase: "error" };
+
+export interface SplitaHooks {
+  /** Called as each stage starts and finishes. Must not throw (errors are ignored). */
+  onStage?: (event: StageEvent) => void;
+}
+
 /**
  * detect → resolve → pseudonymize → reason → restore → receipt.
  * Fail-closed: any error before `reason` returns a failure and the reasoner is never called.
  */
-export async function runSplita(input: SplitaInput, deps: SplitaDeps): Promise<SplitaResult> {
+export async function runSplita(input: SplitaInput, deps: SplitaDeps, hooks: SplitaHooks = {}): Promise<SplitaResult> {
   const now = deps.now ?? Date.now;
   const clock = deps.clock ?? (() => new Date());
   const timings: StageTimings = { detect: 0, resolve: 0, pseudonymize: 0, reason: 0, restore: 0 };
   let stage: Stage = "detect";
+  let current: ProgressStage = "detect";
+  const emit = (event: StageEvent) => {
+    try {
+      hooks.onStage?.(event);
+    } catch {
+      // A UI callback must never break the pipeline.
+    }
+  };
+  const track = async <T>(s: ProgressStage, fn: () => Promise<T> | T): Promise<{ out: T; ms: number }> => {
+    current = s;
+    emit({ stage: s, phase: "start" });
+    const t0 = now();
+    const out = await fn();
+    const ms = Math.round(now() - t0);
+    emit({ stage: s, phase: "done", ms });
+    return { out, ms };
+  };
 
   const timed = async <T>(s: Exclude<Stage, "receipt">, fn: () => Promise<T> | T): Promise<T> => {
     stage = s;
     const t0 = now();
-    const out = await fn();
+    const { out } = await track(s, fn);
     timings[s] = Math.round(now() - t0);
     return out;
   };
@@ -91,9 +121,10 @@ export async function runSplita(input: SplitaInput, deps: SplitaDeps): Promise<S
       return r;
     });
 
-    const pseudo = await timed("pseudonymize", () => {
+    const pseudo = await timed("pseudonymize", async () => {
       const p = pseudonymize(text, mentions, entities);
-      assertNoLeak(p.anonymizedText, p.mapping);
+      await track("verify", () => assertNoLeak(p.anonymizedText, p.mapping));
+      current = "pseudonymize";
       return p;
     });
 
@@ -105,6 +136,9 @@ export async function runSplita(input: SplitaInput, deps: SplitaDeps): Promise<S
     );
 
     stage = "receipt";
+    current = "receipt";
+    emit({ stage: "receipt", phase: "start" });
+    const tReceipt = now();
     const prev = await deps.receipts.head(workspaceId);
     const prevReceiptHash = prev ? await receiptHash(prev, deps.hasher) : null;
     const timestamp = clock().toISOString();
@@ -126,6 +160,7 @@ export async function runSplita(input: SplitaInput, deps: SplitaDeps): Promise<S
       deps.hasher,
     );
     await deps.receipts.append(receipt);
+    emit({ stage: "receipt", phase: "done", ms: Math.round(now() - tReceipt) });
 
     return { ok: true, answer, cloudView: {
         anonymizedText: pseudo.anonymizedText,
@@ -133,6 +168,7 @@ export async function runSplita(input: SplitaInput, deps: SplitaDeps): Promise<S
         placeholders: placeholderInfo(pseudo.mapping, pseudo.spans),
       }, receipt };
   } catch (e) {
+    emit({ stage: current, phase: "error" });
     return { ok: false, stage, error: e instanceof Error ? e : new Error(String(e)) };
   }
 }

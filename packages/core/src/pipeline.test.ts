@@ -104,4 +104,28 @@ describe("runSplita", () => {
     if (!r.ok) throw r.error;
     expect(r.answer).toBe("EMPLOYEE_1 and EMPLOYER_1");
   });
+
+  it("reports each stage starting and finishing, in order", async () => {
+    const { d } = deps();
+    const events: string[] = [];
+    const r = await runSplita({ workspaceId: "w", text: TEXT }, d, { onStage: (e) => events.push(`${e.stage}:${e.phase}`) });
+    expect(r.ok).toBe(true);
+    expect(events).toEqual([
+      "detect:start", "detect:done", "resolve:start", "resolve:done", "pseudonymize:start", "verify:start", "verify:done",
+      "pseudonymize:done", "reason:start", "reason:done", "restore:start", "restore:done", "receipt:start", "receipt:done",
+    ]);
+  });
+
+  it("reports the failing stage and survives a throwing hook", async () => {
+    const { d } = deps({ reasoner: { reason: () => Promise.reject(new Error("503")) } });
+    const events: string[] = [];
+    const r = await runSplita({ workspaceId: "w", text: TEXT }, d, {
+      onStage: (e) => {
+        events.push(`${e.stage}:${e.phase}`);
+        throw new Error("ui bug");
+      },
+    });
+    expect(r.ok).toBe(false);
+    expect(events.at(-1)).toBe("reason:error");
+  });
 });
