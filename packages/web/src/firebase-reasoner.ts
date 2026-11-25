@@ -41,7 +41,13 @@ export function errorStatus(e: unknown): number | undefined {
   return m?.[1] ? Number(m[1]) : undefined;
 }
 
-export const isRetryable = (e: unknown): boolean => (RETRYABLE_STATUSES as readonly number[]).includes(errorStatus(e) ?? 0);
+/** A cloud call that took longer than `timeoutMs`. Treated like a 503: retried, then the fallback. */
+export class CloudTimeoutError extends Error {
+  override name = "CloudTimeoutError";
+}
+
+export const isRetryable = (e: unknown): boolean =>
+  e instanceof CloudTimeoutError || (RETRYABLE_STATUSES as readonly number[]).includes(errorStatus(e) ?? 0);
 
 export interface NamedCloudModel {
   name: string;
@@ -56,6 +62,8 @@ export interface ReasonerOptions {
   fallback?: NamedCloudModel;
   /** Backoff before each retry, before jitter. Length = retries. Default ~1s, 2s. */
   backoffMs?: readonly number[];
+  /** Per-call limit; a slower call is abandoned and retried. Default 30 s. */
+  timeoutMs?: number;
   /** Backoff before switching to the fallback. Default ~4s. */
   fallbackDelayMs?: number;
   sleep?: (ms: number) => Promise<void>;
@@ -82,6 +90,7 @@ export class FirebaseReasoner implements ReasonerPort {
   private readonly modelName: string;
   private readonly fallback: NamedCloudModel | undefined;
   private readonly fallbackDelayMs: number;
+  private readonly timeoutMs: number;
 
   constructor(
     private readonly model: CloudModel,
@@ -95,6 +104,19 @@ export class FirebaseReasoner implements ReasonerPort {
     this.modelName = o.modelName ?? CLOUD_MODEL;
     this.fallback = o.fallback;
     this.fallbackDelayMs = o.fallbackDelayMs ?? 4000;
+    this.timeoutMs = o.timeoutMs ?? 30_000;
+  }
+
+  private async withTimeout<T>(p: Promise<T>): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new CloudTimeoutError(`Cloud call timed out after ${this.timeoutMs}ms`)), this.timeoutMs);
+    });
+    try {
+      return await Promise.race([p, timeout]);
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async reason(anonymizedPrompt: string): Promise<ReasonerResult> {
@@ -102,7 +124,7 @@ export class FirebaseReasoner implements ReasonerPort {
     let attempts = 0;
     const call = async (model: CloudModel, name: string): Promise<ReasonerResult> => {
       attempts++;
-      const result = await model.generateContent(anonymizedPrompt);
+      const result = await this.withTimeout(model.generateContent(anonymizedPrompt));
       return {
         text: result.response.text(),
         source: result.response.inferenceSource ?? "in_cloud",

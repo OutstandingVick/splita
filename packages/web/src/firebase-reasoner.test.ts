@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type CloudModel, errorStatus, FirebaseReasoner, REASONER_SYSTEM_INSTRUCTION, withJitter } from "./firebase-reasoner.js";
+import { CloudTimeoutError, type CloudModel, errorStatus, FirebaseReasoner, REASONER_SYSTEM_INSTRUCTION, withJitter } from "./firebase-reasoner.js";
 
 const httpError = (status: number) =>
   Object.assign(new Error(`AI: Error fetching from https://x: [${status} Err] boom (AI/fetch-error)`), { customErrorData: { status } });
@@ -112,5 +112,31 @@ describe("FirebaseReasoner fallback", () => {
     const fb = flaky([]);
     await expect(new FirebaseReasoner(flaky([400]), { ...base([]), fallback: { name: "b", model: fb } }).reason("x")).rejects.toThrow("[400");
     expect(fb.calls).toBe(0);
+  });
+});
+
+describe("FirebaseReasoner timeout", () => {
+  const hang: CloudModel = { generateContent: () => new Promise(() => {}) };
+  const quick = { sleep: async () => {}, random: () => 0.5, timeoutMs: 10 };
+
+  it("retries a call that exceeds the timeout, then fails closed with CloudTimeoutError", async () => {
+    let calls = 0;
+    const counting: CloudModel = { generateContent: (p) => (calls++, hang.generateContent(p)) };
+    await expect(new FirebaseReasoner(counting, quick).reason("x")).rejects.toBeInstanceOf(CloudTimeoutError);
+    expect(calls).toBe(3);
+  });
+
+  it("falls back after repeated timeouts", async () => {
+    const fb = flaky([]);
+    const r = await new FirebaseReasoner(hang, { ...quick, fallback: { name: "b", model: fb } }).reason("x");
+    expect(r).toMatchObject({ model: "b", attempts: 4 });
+  });
+
+  it("recovers when a retry answers in time", async () => {
+    let n = 0;
+    const slowThenFast: CloudModel = {
+      generateContent: (p) => (n++ === 0 ? hang.generateContent(p) : flaky([]).generateContent()),
+    };
+    expect((await new FirebaseReasoner(slowThenFast, quick).reason("x")).attempts).toBe(2);
   });
 });
