@@ -5,6 +5,7 @@ import { Suspense, useState } from "react";
 import { useDeviceStatus } from "@/components/device-status";
 import { AnswerPanel } from "@/components/workspace/answer-panel";
 import { DocumentEditor } from "@/components/workspace/document-editor";
+import { FailureNotice } from "@/components/workspace/failure-notice";
 import { MatterList } from "@/components/workspace/matter-list";
 import { ReceiptCard } from "@/components/workspace/receipt-card";
 import { VerifyButton } from "@/components/workspace/verify-button";
@@ -49,6 +50,8 @@ function Workspace() {
               online={online}
             />
             <PipelineStrip progress={state.progress} />
+            {outcome?.kind === "answer" && !outcome.result.ok && <FailureNotice stage={outcome.result.stage} error={outcome.result.error} />}
+            {outcome?.kind === "setup-error" && <FailureNotice stage="detect" error={{ message: outcome.message }} />}
             {outcome?.kind === "preview" && (
               <>
                 <div role="status" className="rounded-xl border border-stone-200 bg-white p-4 text-sm text-stone-700">
