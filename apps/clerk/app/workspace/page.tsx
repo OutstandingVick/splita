@@ -75,6 +75,17 @@ function Workspace() {
               online={online}
             />
             <PipelineStrip progress={state.progress} />
+            {state.busy && (
+              <section aria-hidden className="rounded-xl border border-stone-200 bg-white p-6">
+                <div className="h-4 w-40 animate-pulse rounded bg-stone-100" />
+                <div className="mt-5 space-y-2.5">
+                  {[92, 85, 96, 70, 88, 60].map((w) => (
+                    <div key={w} className="h-3 animate-pulse rounded bg-stone-100" style={{ width: `${w}%` }} />
+                  ))}
+                </div>
+                <p className="mt-6 text-xs text-stone-500">The cloud only sees stand-ins. Real values are restored here when the answer arrives.</p>
+              </section>
+            )}
             {outcome?.kind === "answer" && !outcome.result.ok && <FailureNotice stage={outcome.result.stage} error={outcome.result.error} />}
             {outcome?.kind === "setup-error" && <FailureNotice stage="detect" error={{ message: outcome.message }} />}
             {outcome?.kind === "preview" && (
