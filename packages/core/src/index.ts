@@ -17,3 +17,4 @@ export { parseMoney, ngnBucket, moneyPlaceholderPrefix, type Currency, type Mone
 export { detectRole, ROLES, type Role } from "./roles.js";
 export { CompositeDetector, type DetectionMode, type DetectorStatus, type OptionalDetector } from "./composite-detector.js";
 export { detectAddresses, detectPlaces, locationKind, type LocationKind } from "./rules/location.js";
+export { PUBLIC_TERMS, dropPublicTerms, findPublicTerms, isPublicTerm } from "./public-terms.js";
