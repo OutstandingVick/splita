@@ -60,7 +60,7 @@ npx firebase-tools deploy --only firestore
 pnpm --filter @splita/clerk dev
 ```
 
-`predev` builds `core` and `web` first. Open `http://localhost:3000/pipeline-test` in Chrome with Gemini Nano enabled (see PHASE0.md). The page warms Nano up on load and logs the cause to the console if warm-up fails. It shows the detection mode, warm/cold Nano timing, the anonymized text with each placeholder highlighted (hover for its type and whether rules or Nano found it, never the value), both answers rendered as Markdown, **Quick explain** (`PREFER_ON_DEVICE`, with an on-device/cloud badge), whole-ms stage timings and the receipt.
+`scripts/dev.sh` builds `core` and `web`, then keeps them rebuilding (`tsc -w`) alongside `next dev`, so package changes show up without a restart. Open `http://localhost:3000/pipeline-test` in Chrome with Gemini Nano enabled (see PHASE0.md). The page warms Nano up on load and logs the cause to the console if warm-up fails. It shows the detection mode, warm/cold Nano timing, the anonymized text with each placeholder highlighted (hover for its type and whether rules or Nano found it, never the value), both answers rendered as Markdown, **Quick explain** (`PREFER_ON_DEVICE`, with an on-device/cloud badge), whole-ms stage timings and the receipt.
 
 **Reset vault** clears this workspace's mappings, so placeholders restart at `_1`.
 

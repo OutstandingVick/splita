@@ -4,11 +4,10 @@
   "private": true,
   "license": "Apache-2.0",
   "scripts": {
-    "dev": "next dev",
+    "dev": "sh ../../scripts/dev.sh",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit",
-    "predev": "pnpm --filter @splita/core --filter @splita/web build"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@splita/core": "workspace:*",
