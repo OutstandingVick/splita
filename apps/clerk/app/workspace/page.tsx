@@ -9,6 +9,7 @@ import { FailureNotice } from "@/components/workspace/failure-notice";
 import { MatterList } from "@/components/workspace/matter-list";
 import { ReceiptCard } from "@/components/workspace/receipt-card";
 import { VerifyButton } from "@/components/workspace/verify-button";
+import { HybridLine } from "@/components/workspace/hybrid-line";
 import { PipelineStrip } from "@/components/workspace/pipeline-strip";
 import { SplitView } from "@/components/workspace/split-view";
 import { DEMO_MATTER_ID, demoMatter } from "@/lib/matters";
@@ -80,6 +81,9 @@ function Workspace() {
               online={online}
             />
             <PipelineStrip progress={state.progress} />
+            {outcome?.kind === "answer" && outcome.result.ok && (
+              <HybridLine mode={outcome.result.mode} inferenceSource={outcome.result.receipt.inferenceSource} cloudModel={outcome.result.receipt.cloudModel} />
+            )}
             {state.busy && (
               <section aria-hidden className="rounded-xl border border-stone-200 bg-white p-6">
                 <div className="h-4 w-40 animate-pulse rounded bg-stone-100" />
