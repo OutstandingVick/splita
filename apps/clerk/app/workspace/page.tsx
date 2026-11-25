@@ -114,8 +114,8 @@ function Workspace() {
                     onClick={() => setShowCloud((v) => !v)}
                     className="flex items-center gap-2 rounded-full text-sm text-stone-700"
                   >
-                    <span aria-hidden className={`relative h-5 w-9 rounded-full transition-colors ${showCloud ? "bg-accent-600" : "bg-stone-300"}`}>
-                      <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${showCloud ? "translate-x-4" : "translate-x-0.5"}`} />
+                    <span aria-hidden className={`relative inline-block h-5 w-9 shrink-0 rounded-full transition-colors ${showCloud ? "bg-accent-600" : "bg-stone-300"}`}>
+                      <span className={`absolute left-0 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${showCloud ? "translate-x-4" : "translate-x-0.5"}`} />
                     </span>
                     Show what the cloud saw
                   </button>
