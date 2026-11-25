@@ -62,6 +62,9 @@ export function AnswerPanel({ matterId, answer }: { matterId: string; answer: st
       <div ref={boxRef} className="px-6 py-5">
         <Markdown text={answer} inline={termInline(explain.pick)} />
       </div>
+      <p className="border-t border-stone-100 px-6 py-2.5 text-xs text-stone-500" data-testid="legal-disclaimer">
+        AI assistance, not legal advice. Confirm with a qualified lawyer.
+      </p>
       <div className="min-h-14 border-t border-stone-100 bg-stone-50/60 px-6 py-3 text-sm" aria-live="polite">
         {st.status === "idle" && (
           <p className="text-xs text-stone-500">
