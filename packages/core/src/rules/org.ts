@@ -7,8 +7,12 @@ const ORG = new RegExp(`\\b(?:${TOK}[ ]+){0,4}${TOK}[ ]+${SUFFIX}(?![A-Za-z])`, 
 const ORG_EXACT = new RegExp(`^(?:${TOK}[ ]+){1,5}${SUFFIX}$`);
 const LEADING = new RegExp(`^(${TOK})[ ]+`);
 
-/** Capitalized sentence/grammar words that are never the start of an org name. */
-const STOP = new Set(["The", "This", "That", "A", "An", "And", "Between", "Dear", "For", "To", "Of", "With", "From", "By", "Re", "RE"]);
+/** Capitalized sentence starters (articles, prepositions, imperatives) that never begin an org name. */
+const STOP = new Set([
+  "The", "This", "That", "A", "An", "And", "Between", "Dear", "For", "To", "Of", "With", "From", "By",
+  "Re", "RE", "At", "In", "On", "Via", "Per", "Attn", "Attention", "Signed", "Notices", "Payment",
+  "Pay", "Please", "Kindly", "Send", "Contact", "Call", "Email", "Ask", "Tell", "Sue",
+]);
 
 /** Capitalized words ending in Ltd, Limited, Plc, Bank, Inc, LLC or "& Co". */
 export const detectOrgs: Rule = (text) => {

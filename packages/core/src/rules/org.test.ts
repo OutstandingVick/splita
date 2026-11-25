@@ -19,6 +19,10 @@ describe("detectOrgs", () => {
     expect(texts("The Ikenga Fintech Ltd board")).toEqual(["Ikenga Fintech Ltd"]);
   });
 
+  it("strips sentence-initial imperatives", () => {
+    expect(texts("Pay Eze Properties Limited now. Kindly Sue Acme Inc.")).toEqual(["Eze Properties Limited", "Acme Inc"]);
+  });
+
   it("drops matches that are only a stopword plus suffix", () => {
     expect(texts("The Bank shall pay")).toEqual([]);
   });
