@@ -2,7 +2,7 @@
 
 Identity-split inference for Firebase AI Logic. Identities are detected and pseudonymized on-device (Gemini Nano in Chrome), the cloud model reasons only on anonymized text, and real identities are restored on-device. Every request writes a hash-chained privacy receipt.
 
-Status: Phase 1 (core pipeline). See [docs/PHASE0.md](docs/PHASE0.md) and [docs/PHASE1.md](docs/PHASE1.md).
+Status: Phase 2 (web adapters). See [docs/PHASE0.md](docs/PHASE0.md), [docs/PHASE1.md](docs/PHASE1.md) and [docs/PHASE2.md](docs/PHASE2.md).
 
 ## Layout
 
