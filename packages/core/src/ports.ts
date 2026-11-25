@@ -12,9 +12,17 @@ export interface VaultPort {
   list(workspaceId: string): Promise<Entity[]>;
 }
 
+export interface ReasonOptions {
+  /**
+   * Streaming: called with the whole answer text received so far (anonymized). An empty string
+   * means "start over" (e.g. a failed stream is being retried without streaming).
+   */
+  onText?: (textSoFar: string) => void;
+}
+
 /** Reasons over anonymized text only. */
 export interface ReasonerPort {
-  reason(anonymizedPrompt: string): Promise<ReasonerResult>;
+  reason(anonymizedPrompt: string, options?: ReasonOptions): Promise<ReasonerResult>;
 }
 
 /** Append-only, hash-chained receipt log. `head` returns the latest receipt for chaining. */

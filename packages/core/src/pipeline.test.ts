@@ -141,4 +141,25 @@ describe("runSplita", () => {
     ]);
     expect(JSON.stringify(r.receipt)).not.toContain("Ogunleye");
   });
+
+  it("streams restored partial answers without changing the payload hash", async () => {
+    const chunks = ["EMPLOYEE_1 is ow", "ed AMOUNT_NGN_MI", "D_1 by EMPLOYER_1."];
+    const streaming = {
+      async reason(prompt: string, opts?: { onText?: (t: string) => void }) {
+        let so = "";
+        for (const c of chunks) opts?.onText?.((so += c));
+        return { text: so, source: "in_cloud" as const, latencyMs: 1 };
+      },
+    };
+    const { d } = deps({ reasoner: streaming });
+    const partials: string[] = [];
+    const r = await runSplita({ workspaceId: "w", text: TEXT }, d, { onAnswer: (p) => partials.push(p.restored) });
+    if (!r.ok) throw r.error;
+    expect(partials).toEqual([
+      "Mr. Adebayo Ogunleye is ow",
+      "Mr. Adebayo Ogunleye is owed ",
+      "Mr. Adebayo Ogunleye is owed ₦850,000 by Zenith Bank Plc.",
+    ]);
+    expect(r.receipt.payloadHash).toBe(await webCryptoHasher.sha256(r.cloudView.anonymizedText));
+  });
 });

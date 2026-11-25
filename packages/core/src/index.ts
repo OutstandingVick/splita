@@ -20,3 +20,4 @@ export { detectAddresses, detectPlaces, locationKind, type LocationKind } from "
 export { PUBLIC_TERMS, dropPublicTerms, findPublicTerms, isPublicTerm } from "./public-terms.js";
 export { previewSplita, type PreviewResult } from "./preview.js";
 export { verifyChains, verifyReceipt, type ChainCheck, type ChainProblem, type ReceiptCheck } from "./verify.js";
+export { restorePartial, safeStreamPrefix } from "./stream-restore.js";

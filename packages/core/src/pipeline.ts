@@ -3,6 +3,7 @@ import { resolveOverlaps } from "./overlap.js";
 import type { DetectorPort, HasherPort, ReasonerPort, ReceiptPort, VaultPort } from "./ports.js";
 import { dropPublicTerms } from "./public-terms.js";
 import { pseudonymize } from "./pseudonymize.js";
+import { restorePartial } from "./stream-restore.js";
 import { countEntities, detectorSources, receiptHash, sealReceipt } from "./receipt.js";
 import { type Mention, resolveEntities } from "./resolver.js";
 import { mappingFromEntities, restore } from "./restore.js";
@@ -89,6 +90,11 @@ export type StageEvent =
 export interface SplitaHooks {
   /** Called as each stage starts and finishes. Must not throw (errors are ignored). */
   onStage?: (event: StageEvent) => void;
+  /**
+   * Streaming answer: the anonymized text received so far, and that text restored on the device
+   * (complete placeholders only). Provisional; the final `answer` is authoritative.
+   */
+  onAnswer?: (partial: { cloud: string; restored: string }) => void;
 }
 
 /**
@@ -147,8 +153,26 @@ export async function runSplita(input: SplitaInput, deps: SplitaDeps, hooks: Spl
       return p;
     });
 
+    // Hash exactly what is sent, before sending; streaming does not change the payload.
     const payloadHash = await deps.hasher.sha256(pseudo.anonymizedText);
-    const cloud = await timed("reason", () => deps.reasoner.reason(pseudo.anonymizedText));
+    const onAnswer = hooks.onAnswer;
+    const streamMapping = onAnswer ? mappingFromEntities(await deps.vault.list(workspaceId)) : undefined;
+    const cloud = await timed("reason", () =>
+      deps.reasoner.reason(
+        pseudo.anonymizedText,
+        onAnswer && streamMapping
+          ? {
+              onText: (t) => {
+                try {
+                  onAnswer({ cloud: t, restored: restorePartial(t, streamMapping) });
+                } catch {
+                  // UI callback errors never affect the run.
+                }
+              },
+            }
+          : undefined,
+      ),
+    );
 
     const answer = await timed("restore", async () =>
       restore(cloud.text, mappingFromEntities(await deps.vault.list(workspaceId))),
