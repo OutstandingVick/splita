@@ -1,4 +1,5 @@
 import type { DetectorStatus, OptionalDetector, Span } from "@splita/core";
+import type { Chunk } from "./nano-parse.js";
 import { chunkText, locateEntities, NANO_RESPONSE_SCHEMA, parseNanoEntities } from "./nano-parse.js";
 import { mapLimit } from "./concurrency.js";
 import type { PromptOptions } from "./nano-session.js";
@@ -23,17 +24,30 @@ export class NanoTimeoutError extends Error {
   override name = "NanoTimeoutError";
 }
 
-export function nanoPrompt(chunk: string): string {
+/**
+ * Asks only for PERSON and ORG names, and lists the names rules already found in this chunk
+ * so Nano spends its tokens on what rules missed.
+ */
+export function nanoPrompt(chunk: string, alreadyFound: readonly string[] = []): string {
   return [
-    "Extract every PERSON name, ORG (company, bank, firm) name and LOCATION (city, state, street address) in the text.",
-    "Copy each exactly as it appears. Do not include money, emails, phone numbers, dates, or role words like Employer or Tenant.",
+    "List every PERSON name and ORG (company, bank, firm) name in the text that is NOT in the already-found list.",
+    "Copy each exactly as it appears. Skip courts, government agencies, laws, role words (Employer, Tenant) and anything in the list.",
     'Return only a JSON array like [{"text":"...","type":"PERSON"}]. Return [] if there are none.',
+    "",
+    `ALREADY FOUND: ${alreadyFound.length ? JSON.stringify(alreadyFound) : "[]"}`,
     "",
     "TEXT:",
     "<<<",
     chunk,
     ">>>",
   ].join("\n");
+}
+
+/** Distinct PERSON/ORG texts from `known` that fall inside the chunk. */
+export function namesInChunk(chunk: Chunk, known: readonly Span[]): string[] {
+  const end = chunk.offset + chunk.text.length;
+  const names = known.filter((s) => (s.type === "PERSON" || s.type === "ORG") && s.start >= chunk.offset && s.end <= end).map((s) => s.text);
+  return [...new Set(names)];
 }
 
 async function withTimeout<T>(work: (signal: AbortSignal) => Promise<T>, ms: number): Promise<T> {
@@ -81,10 +95,10 @@ export class NanoDetector implements OptionalDetector {
     return this._lastError;
   }
 
-  async detect(text: string): Promise<Span[]> {
+  async detect(text: string, known: readonly Span[] = []): Promise<Span[]> {
     return this.guard(async (signal) => {
       const perChunk = await mapLimit(chunkText(text, this.chunkChars), this.concurrency, async (chunk) => {
-        const raw = await this.session.prompt(nanoPrompt(chunk.text), { responseConstraint: NANO_RESPONSE_SCHEMA, signal });
+        const raw = await this.session.prompt(nanoPrompt(chunk.text, namesInChunk(chunk, known)), { responseConstraint: NANO_RESPONSE_SCHEMA, signal });
         return locateEntities(chunk, parseNanoEntities(raw));
       });
       return perChunk.flat();

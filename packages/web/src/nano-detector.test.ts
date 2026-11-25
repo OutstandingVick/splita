@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { NanoDetector, type NanoPrompter } from "./nano-detector.js";
+import { NanoDetector, type NanoPrompter, nanoPrompt } from "./nano-detector.js";
 
 type Fake = NanoPrompter & { prompts: string[]; readies: number };
 const fake = (reply: string | ((p: string) => string), opts: { delayMs?: number; availability?: string } = {}): Fake => {
@@ -51,6 +51,17 @@ describe("NanoDetector", () => {
     expect(peak).toBe(2);
   });
 
+  it("lists the rule-found names in each chunk's prompt", async () => {
+    const s = fake("[]");
+    const text = "Mr. Adebayo Ogunleye paid Kunle Ajayi in Lagos.";
+    await new NanoDetector(s).detect(text, [
+      { start: 0, end: 20, text: "Mr. Adebayo Ogunleye", type: "PERSON", confidence: 1, source: "rules" },
+      { start: 41, end: 46, text: "Lagos", type: "LOCATION", confidence: 1, source: "rules" },
+    ]);
+    expect(s.prompts[0]).toContain('ALREADY FOUND: ["Mr. Adebayo Ogunleye"]');
+    expect(s.prompts[0]).not.toContain("LOCATION");
+  });
+
   it("is unavailable (and never prompts) when the Prompt API is not available", async () => {
     const s = fake("[]", { availability: "downloadable" });
     const d = new NanoDetector(s);
@@ -97,5 +108,13 @@ describe("NanoDetector.warmUp", () => {
     const d = new NanoDetector(s);
     expect(await d.warmUp()).toBe("error");
     expect(d.lastError).toBe("Error: NotSupportedError: bad expectedOutputs");
+  });
+});
+
+describe("nanoPrompt", () => {
+  it("asks only for PERSON and ORG", () => {
+    const p = nanoPrompt("x");
+    expect(p).toContain("PERSON name and ORG");
+    expect(p).toContain("ALREADY FOUND: []");
   });
 });

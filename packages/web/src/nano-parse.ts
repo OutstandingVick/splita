@@ -1,12 +1,13 @@
 import { ROLES, type Span } from "@splita/core";
 
-export type NanoEntityType = "PERSON" | "ORG" | "LOCATION";
+/** Nano only adds names; rules own locations, money, contacts and dates. */
+export type NanoEntityType = "PERSON" | "ORG";
 export interface NanoEntity {
   text: string;
   type: NanoEntityType;
 }
 
-const NANO_TYPES: readonly NanoEntityType[] = ["PERSON", "ORG", "LOCATION"];
+const NANO_TYPES: readonly NanoEntityType[] = ["PERSON", "ORG"];
 
 /** JSON Schema passed to Chrome's Prompt API as `responseConstraint`. */
 export const NANO_RESPONSE_SCHEMA = {

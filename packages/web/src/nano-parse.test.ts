@@ -25,8 +25,8 @@ describe("parseNanoEntities", () => {
   });
 
   it("tolerates fences, prose and bad items", () => {
-    const raw = 'Sure!\n```json\n[{"text":" Ikoyi ","type":"LOCATION"},{"text":"x","type":"MONEY"},5,null]\n```';
-    expect(parseNanoEntities(raw)).toEqual([{ text: "Ikoyi", type: "LOCATION" }]);
+    const raw = 'Sure!\n```json\n[{"text":" Kunle ","type":"PERSON"},{"text":"Ikoyi","type":"LOCATION"},{"text":"x","type":"MONEY"},5,null]\n```';
+    expect(parseNanoEntities(raw)).toEqual([{ text: "Kunle", type: "PERSON" }]);
   });
 
   it("returns [] for garbage", () => {
