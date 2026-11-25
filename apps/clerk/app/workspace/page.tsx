@@ -3,7 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { useDeviceStatus } from "@/components/device-status";
-import { Markdown } from "@/components/markdown";
+import { AnswerPanel } from "@/components/workspace/answer-panel";
 import { DocumentEditor } from "@/components/workspace/document-editor";
 import { MatterList } from "@/components/workspace/matter-list";
 import { PipelineStrip } from "@/components/workspace/pipeline-strip";
@@ -46,10 +46,7 @@ function Workspace() {
             />
             <PipelineStrip progress={state.progress} />
             {outcome?.kind === "answer" && outcome.result.ok && (
-              <section className="rounded-xl border border-stone-200 bg-white p-6">
-                <h2 className="mb-3 text-sm font-semibold text-stone-800">Answer</h2>
-                <Markdown text={outcome.result.answer} />
-              </section>
+              <AnswerPanel matterId={selected.id} answer={outcome.result.answer} />
             )}
           </>
         ) : (
