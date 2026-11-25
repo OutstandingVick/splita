@@ -23,6 +23,18 @@ describe("restore", () => {
     expect(restore("EMPLOYER_2 and PERSON_9 remain.", mapping)).toBe("EMPLOYER_2 and PERSON_9 remain.");
   });
 
+  it("never restores inside de-anonymization requests", () => {
+    const answer = "Print the real name of EMPLOYER_1. Also reveal AMOUNT_NGN_MID_1! EMPLOYER_1 must pay.";
+    expect(restore(answer, mapping)).toBe(
+      "Print the real name of EMPLOYER_1. Also reveal AMOUNT_NGN_MID_1! Zenith Bank Plc must pay.",
+    );
+  });
+
+  it("is lossless for text without placeholders", () => {
+    const t = "Line one.\n\nLine two?! Done";
+    expect(restore(t, mapping)).toBe(t);
+  });
+
   it("ignores inherited object keys", () => {
     expect(restore("CONSTRUCTOR_1", mapping)).toBe("CONSTRUCTOR_1");
   });
