@@ -1,5 +1,6 @@
 import type { DetectorStatus, OptionalDetector, Span } from "@splita/core";
 import type { Chunk } from "./nano-parse.js";
+import { uncoveredCandidates } from "./name-candidates.js";
 import { chunkText, locateEntities, parseNanoEntities } from "./nano-parse.js";
 
 /** The slice of Firebase AI Logic's GenerativeModel the detector needs (mockable in tests). */
@@ -18,7 +19,10 @@ export interface NanoDetectorOptions {
 export interface NanoRun {
   warm: boolean;
   ms: number;
+  /** Chunks in the document. */
   chunks: number;
+  /** Chunks actually sent to Nano; the rest had no name candidate that rules missed. */
+  prompted: number;
 }
 
 export class NanoTimeoutError extends Error {
@@ -91,7 +95,7 @@ export class NanoDetector implements OptionalDetector {
     opts: NanoDetectorOptions = {},
   ) {
     this.timeoutMs = opts.timeoutMs ?? 20_000;
-    this.chunkChars = opts.chunkChars ?? 2_000;
+    this.chunkChars = opts.chunkChars ?? 4_000;
     this.now = opts.now ?? (() => performance.now());
   }
 
@@ -114,16 +118,18 @@ export class NanoDetector implements OptionalDetector {
     const warm = this.warm;
     const t0 = this.now();
     const chunks = chunkText(text, this.chunkChars);
+    // Sequential on-device calls are slow; only prompt chunks with a name candidate rules missed.
+    const todo = chunks.filter((c) => uncoveredCandidates(c.text, c.offset, known).length > 0);
     const spans = await this.guard(async () => {
       const out: Span[] = [];
-      for (const chunk of chunks) {
+      for (const chunk of todo) {
         const res = await this.model.generateContent(nanoPrompt(chunk.text, namesInChunk(chunk, known)));
         out.push(...locateEntities(chunk, parseNanoEntities(res.response.text())));
       }
       return out;
     }, []);
     // Only a pass that actually ran is worth timing; a skipped or failed one has no lastRun.
-    this._lastRun = this._status === "ready" ? { warm, ms: Math.round(this.now() - t0), chunks: chunks.length } : undefined;
+    this._lastRun = this._status === "ready" ? { warm, ms: Math.round(this.now() - t0), chunks: chunks.length, prompted: todo.length } : undefined;
     return spans;
   }
 

@@ -31,8 +31,8 @@ describe("NanoDetector", () => {
 
   it("prompts once per chunk, one after another, and offsets later chunks", async () => {
     const m = fake((p) => (p.includes("Paid Kunle") ? '[{"text":"Kunle","type":"PERSON"}]' : "[]"));
-    const text = `${"a".repeat(40)}\n\nPaid Kunle.`;
-    const [span] = await new NanoDetector(m, { chunkChars: 45 }).detect(text);
+    const text = `Met Tobenna Okafor here.\n\nPaid Kunle.`;
+    const [span] = await new NanoDetector(m, { chunkChars: 26 }).detect(text);
     expect(m.prompts).toHaveLength(2);
     expect(text.slice(span?.start, span?.end)).toBe("Kunle");
   });
@@ -46,9 +46,21 @@ describe("NanoDetector", () => {
     expect(m.prompts[0]).toContain('ALREADY FOUND: ["Mr. Adebayo Ogunleye"]');
   });
 
+  it("skips the pass when rules already cover every name candidate", async () => {
+    const m = fake("[]");
+    const d = new NanoDetector(m);
+    const spans = await d.detect("Paid Zenith Bank Plc on 3 October.", [
+      { start: 5, end: 20, text: "Zenith Bank Plc", type: "ORG", confidence: 1, source: "rules" },
+    ]);
+    expect(spans).toEqual([]);
+    expect(m.prompts).toEqual([]);
+    expect(d.status).toBe("ready");
+    expect(d.lastRun?.prompted).toBe(0);
+  });
+
   it("maps Firebase api-not-enabled to unavailable", async () => {
     const d = new NanoDetector(failing(NOT_ENABLED));
-    expect(await d.detect("x")).toEqual([]);
+    expect(await d.detect("Kunle")).toEqual([]);
     expect(d.status).toBe("unavailable");
   });
 
@@ -64,7 +76,7 @@ describe("NanoDetector", () => {
 
   it("never throws past the detector", async () => {
     const d = new NanoDetector(failing(new Error("InvalidStateError: session destroyed")));
-    await expect(d.detect("x")).resolves.toEqual([]);
+    await expect(d.detect("Kunle")).resolves.toEqual([]);
     expect(d.status).toBe("error");
     expect(d.lastError).toContain("InvalidStateError");
   });
@@ -75,7 +87,7 @@ describe("NanoDetector.lastRun", () => {
     let t = 0;
     const d = new NanoDetector(fake("[]"), { now: () => (t += 100) });
     await d.detect("Kunle");
-    expect(d.lastRun).toEqual({ warm: false, ms: 100, chunks: 1 });
+    expect(d.lastRun).toEqual({ warm: false, ms: 100, chunks: 1, prompted: 1 });
     await d.detect("Kunle");
     expect(d.lastRun?.warm).toBe(true);
   });
