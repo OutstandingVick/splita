@@ -7,7 +7,7 @@
 | Route | What it does |
 |---|---|
 | `/` | Hero, the three-step identity-split visual (device detects → cloud reasons on stand-ins → device restores), live on-device status, **Open workspace** (opens the demo matter). |
-| `/workspace` | Matter list (stored in this browser, one identity vault per matter), document paste or `.txt` upload, question, **Ask privately**, pipeline strip, restored answer, split view, receipt. |
+| `/workspace` | Matter list (stored in this browser, one identity vault per matter), document paste or `.pdf` / `.txt` upload, question, **Ask privately**, pipeline strip, restored answer, split view, receipt. |
 | `/receipts` | The user's Firestore receipts grouped by matter, with every chain verified in the browser. |
 
 ## Workspace flow
@@ -40,6 +40,6 @@ pnpm --filter @splita/clerk dev
 
 `apps/clerk` now has vitest for its pure logic: the matters store, device badge, pipeline progress model, failure explanations and Markdown parsing.
 
-## Not included
+## PDF upload
 
-- PDF upload needs a parsing dependency, so it isn't in this phase. Only `.txt` upload is supported.
+`.pdf` files (up to 20 MB) are read in the browser with `pdfjs-dist` (`lib/pdf-text.ts`). The worker is bundled with the app, so the file never leaves the device. The editor shows the page count. If no page has a text layer, the PDF is flagged as scanned and nothing is loaded. If only some pages lack text, those pages are skipped and counted. Password-protected PDFs get a clear message.
