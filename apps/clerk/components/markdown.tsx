@@ -9,7 +9,8 @@ import { Fragment, type ReactNode } from "react";
 type Block =
   | { kind: "heading"; level: number; text: string }
   | { kind: "list"; ordered: boolean; start: number; items: string[] }
-  | { kind: "para"; text: string };
+  | { kind: "para"; text: string }
+  | { kind: "rule" };
 
 export function parseBlocks(md: string): Block[] {
   const blocks: Block[] = [];
@@ -24,6 +25,9 @@ export function parseBlocks(md: string): Block[] {
     const item = /^\s*(?:([-*+])|(\d+)[.)])\s+(.*)$/.exec(line);
     if (!line.trim()) {
       flush();
+    } else if (/^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
+      flush();
+      blocks.push({ kind: "rule" });
     } else if (heading) {
       flush();
       blocks.push({ kind: "heading", level: heading[1]?.length ?? 1, text: heading[2] ?? "" });
@@ -67,6 +71,7 @@ export function Markdown({ text, inline = renderInline }: { text: string; inline
       {parseBlocks(text).map((b, i) => {
         if (b.kind === "heading") return <p key={i} className={HEADING_CLASS[b.level - 1]}>{inline(b.text)}</p>;
         if (b.kind === "para") return <p key={i}>{inline(b.text)}</p>;
+        if (b.kind === "rule") return <hr key={i} className="border-stone-200" />;
         const List = b.ordered ? "ol" : "ul";
         return (
           <List key={i} {...(b.ordered && b.start !== 1 ? { start: b.start } : {})} className={`space-y-1 pl-5 ${b.ordered ? "list-decimal" : "list-disc"}`}>

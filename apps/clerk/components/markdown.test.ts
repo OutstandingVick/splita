@@ -11,4 +11,8 @@ describe("parseBlocks", () => {
   it("parses headings and paragraphs", () => {
     expect(parseBlocks("## Next steps\nSend a demand letter.").map((b) => b.kind)).toEqual(["heading", "para"]);
   });
+
+  it("turns --- into a rule instead of text", () => {
+    expect(parseBlocks("Short answer.\n\n---\n\nLegal basis").map((b) => b.kind)).toEqual(["para", "rule", "para"]);
+  });
 });
