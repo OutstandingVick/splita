@@ -6,6 +6,9 @@ import {
   runSplita,
   type SplitaDeps,
   type SplitaResult,
+  type PreviewResult,
+  previewSplita,
+  type Receipt,
   type StageEvent,
 } from "@splita/core";
 import type { AI } from "firebase/ai";
@@ -55,6 +58,10 @@ export interface SplitaWeb {
   warmUpNano(): Promise<DetectorStatus>;
   /** Quick explain (PREFER_ON_DEVICE). Refuses text containing a known identity from this workspace. */
   explain(workspaceId: string, term: string): Promise<Explanation>;
+  /** Anonymize on the device only (no cloud, no receipt, no vault writes). Works offline. */
+  preview(input: { workspaceId: string; text: string; question?: string }): Promise<PreviewResult>;
+  /** This user's receipts from Firestore, newest first. */
+  receipts(workspaceId?: string): Promise<Receipt[]>;
   /** Anonymous sign-in; call on app start. Resolves to the uid. */
   signIn(): Promise<string>;
   readonly vault: IndexedDBVault;
@@ -94,11 +101,12 @@ export function createSplitaWeb(opts: SplitaWebOptions): SplitaWeb {
       modelName: cloudModel,
       ...(fallbackName ? { fallback: { name: fallbackName, model: createCloudModel(opts.ai, fallbackName) } } : {}),
     });
+  const receipts = new FirestoreReceipts(opts.firestore, signIn);
   const deps: SplitaDeps = {
     detectors: [detector],
     vault,
     reasoner,
-    receipts: new FirestoreReceipts(opts.firestore, signIn),
+    receipts,
     hasher: new WebCryptoHasher(),
     now: () => performance.now(),
   };
@@ -106,6 +114,9 @@ export function createSplitaWeb(opts: SplitaWebOptions): SplitaWeb {
   return {
     vault,
     signIn,
+    preview: ({ workspaceId, text, question }) =>
+      previewSplita({ workspaceId, text: composePrompt(question, text) }, { detectors: [new RulesDetector()], vault }),
+    receipts: (workspaceId) => receipts.list(workspaceId),
     async explain(workspaceId, term) {
       const known = (await vault.list(workspaceId)).flatMap((e) => e.aliases);
       return explainer.explain(term, known);

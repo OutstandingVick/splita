@@ -53,6 +53,22 @@ describe("FirestoreReceipts", () => {
   });
 });
 
+describe("FirestoreReceipts.list", () => {
+  it("lists all of the user's receipts newest first, fields stripped", async () => {
+    fs.getDocs.mockResolvedValueOnce({ docs: [{ data: () => ({ ...receipt, junk: 1 }) }] });
+    const out = await new FirestoreReceipts(db, async () => "u1").list();
+    expect(out).toEqual([receipt]);
+    expect(fs.orderBy).toHaveBeenCalledWith("timestamp", "desc");
+    expect(fs.where).not.toHaveBeenCalled();
+  });
+
+  it("filters by workspace when given", async () => {
+    fs.getDocs.mockResolvedValueOnce({ docs: [] });
+    await new FirestoreReceipts(db, async () => "u1").list("demo");
+    expect(fs.where).toHaveBeenCalledWith("workspaceId", "==", "demo");
+  });
+});
+
 describe("ensureAnonymousUser", () => {
   it("reuses the current user", async () => {
     expect(await ensureAnonymousUser({ currentUser: { uid: "me" } } as never)).toBe("me");

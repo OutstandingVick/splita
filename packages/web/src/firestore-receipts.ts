@@ -29,6 +29,16 @@ export class FirestoreReceipts implements ReceiptPort {
     await setDoc(doc(this.db, "users", uid, "receipts", receipt.id), receipt);
   }
 
+  /** This user's receipts, newest first (all workspaces, or one). */
+  async list(workspaceId?: string, max = 500): Promise<Receipt[]> {
+    const uid = await this.uid();
+    const col = collection(this.db, "users", uid, "receipts");
+    const q = workspaceId
+      ? query(col, where("workspaceId", "==", workspaceId), orderBy("timestamp", "desc"), limit(max))
+      : query(col, orderBy("timestamp", "desc"), limit(max));
+    return (await getDocs(q)).docs.map((d) => toReceipt(d.data()));
+  }
+
   async head(workspaceId: string): Promise<Receipt | undefined> {
     const uid = await this.uid();
     const q = query(
