@@ -81,6 +81,8 @@ export function composePrompt(question: string | undefined, text: string): strin
   return q ? `Question:\n${q}\n\nDocument:\n${text}` : text;
 }
 
+const KEEP_WARM_MS = 8_000;
+
 /** Wires the web adapters into the core pipeline. */
 export function createSplitaWeb(opts: SplitaWebOptions): SplitaWeb {
   // Every on-device call (warm-up, detection, Quick explain) shares one single-flight queue.
@@ -144,9 +146,22 @@ export function createSplitaWeb(opts: SplitaWebOptions): SplitaWeb {
     warmUpNano: () => (nano ? warmUpNano(nano) : Promise.resolve<DetectorStatus>("unavailable")),
     async run({ workspaceId, text, question, onStage, onCloudAttempt }) {
       reasoner.setAttemptListener(onCloudAttempt);
-      const result = await runSplita({ workspaceId, text: composePrompt(question, text) }, deps, onStage ? { onStage } : {}).finally(() =>
-        reasoner.setAttemptListener(undefined),
-      );
+      // While the cloud model thinks, keep the Firestore connection warm with a tiny read, so the
+      // receipt write right after does not pay for a fresh connection.
+      let keepWarm: ReturnType<typeof setInterval> | undefined;
+      const stopWarm = () => clearInterval(keepWarm);
+      const hooks = {
+        onStage: (e: StageEvent) => {
+          if (e.stage === "reason" && e.phase === "start") {
+            keepWarm = setInterval(() => void receipts.list(workspaceId, 1).catch(() => undefined), KEEP_WARM_MS);
+          } else if (e.stage === "reason") stopWarm();
+          onStage?.(e);
+        },
+      };
+      const result = await runSplita({ workspaceId, text: composePrompt(question, text) }, deps, hooks).finally(() => {
+        stopWarm();
+        reasoner.setAttemptListener(undefined);
+      });
       const nanoError = nano?.lastError;
       const nanoRun = nano?.lastRun;
       return {
