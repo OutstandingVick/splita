@@ -8,7 +8,7 @@ import { Fragment, type ReactNode } from "react";
 
 type Block =
   | { kind: "heading"; level: number; text: string }
-  | { kind: "list"; ordered: boolean; items: string[] }
+  | { kind: "list"; ordered: boolean; start: number; items: string[] }
   | { kind: "para"; text: string };
 
 export function parseBlocks(md: string): Block[] {
@@ -32,7 +32,7 @@ export function parseBlocks(md: string): Block[] {
       const ordered = item[2] !== undefined;
       const last = blocks.at(-1);
       if (last?.kind === "list" && last.ordered === ordered) last.items.push(item[3] ?? "");
-      else blocks.push({ kind: "list", ordered, items: [item[3] ?? ""] });
+      else blocks.push({ kind: "list", ordered, start: ordered ? Number(item[2]) : 1, items: [item[3] ?? ""] });
     } else {
       const last = blocks.at(-1);
       // Indented continuation of a list item.
@@ -69,7 +69,7 @@ export function Markdown({ text, inline = renderInline }: { text: string; inline
         if (b.kind === "para") return <p key={i}>{inline(b.text)}</p>;
         const List = b.ordered ? "ol" : "ul";
         return (
-          <List key={i} className={`space-y-1 pl-5 ${b.ordered ? "list-decimal" : "list-disc"}`}>
+          <List key={i} {...(b.ordered && b.start !== 1 ? { start: b.start } : {})} className={`space-y-1 pl-5 ${b.ordered ? "list-decimal" : "list-disc"}`}>
             {b.items.map((it, j) => (
               <li key={j}>
                 <Fragment>{inline(it)}</Fragment>

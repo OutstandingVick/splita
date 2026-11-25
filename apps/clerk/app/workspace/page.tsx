@@ -71,14 +71,18 @@ function Workspace() {
                 <AnswerPanel matterId={selected.id} answer={outcome.result.answer} />
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm font-semibold text-stone-800">What left this device</h2>
-                  <label className="flex cursor-pointer items-center gap-2 text-sm text-stone-700">
-                    <input type="checkbox" role="switch" checked={showCloud} onChange={(e) => setShowCloud(e.target.checked)} className="peer sr-only" />
-                    <span
-                      aria-hidden
-                      className="relative h-5 w-9 rounded-full bg-stone-300 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-transform peer-checked:bg-accent-600 peer-checked:after:translate-x-4 peer-focus-visible:outline-2 peer-focus-visible:outline-accent-600"
-                    />
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={showCloud}
+                    onClick={() => setShowCloud((v) => !v)}
+                    className="flex items-center gap-2 rounded-full text-sm text-stone-700"
+                  >
+                    <span aria-hidden className={`relative h-5 w-9 rounded-full transition-colors ${showCloud ? "bg-accent-600" : "bg-stone-300"}`}>
+                      <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${showCloud ? "translate-x-4" : "translate-x-0.5"}`} />
+                    </span>
                     Show what the cloud saw
-                  </label>
+                  </button>
                 </div>
                 {showCloud && (
                   <SplitView
