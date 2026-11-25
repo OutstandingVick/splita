@@ -71,7 +71,7 @@ export interface ReasonerOptions {
   fallback?: NamedCloudModel;
   /** Backoff before each retry, before jitter. Length = retries. Default ~1s, 2s. */
   backoffMs?: readonly number[];
-  /** Per-call limit; a slower call is abandoned and retried. Default 15 s. */
+  /** Per-call limit; a slower call is abandoned and retried. Default 35 s. */
   timeoutMs?: number;
   /** Backoff before switching to the fallback. Default ~4s. */
   fallbackDelayMs?: number;
@@ -122,7 +122,7 @@ export class FirebaseReasoner implements ReasonerPort {
     this.modelName = o.modelName ?? CLOUD_MODEL;
     this.fallback = o.fallback;
     this.fallbackDelayMs = o.fallbackDelayMs ?? 4000;
-    this.timeoutMs = o.timeoutMs ?? 15_000;
+    this.timeoutMs = o.timeoutMs ?? 35_000;
     this.onAttempt = o.onAttempt;
   }
 
