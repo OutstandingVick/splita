@@ -37,6 +37,20 @@ describe("NanoDetector", () => {
     expect(text.slice(span?.start, span?.end)).toBe("Kunle");
   });
 
+  it("prompts at most two chunks at once", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    const s = fake("[]");
+    s.prompt = async () => {
+      peak = Math.max(peak, ++inFlight);
+      await new Promise((r) => setTimeout(r, 5));
+      inFlight--;
+      return "[]";
+    };
+    await new NanoDetector(s, { chunkChars: 10 }).detect(["aaaa", "bbbb", "cccc", "dddd", "eeee"].join("\n\n"));
+    expect(peak).toBe(2);
+  });
+
   it("is unavailable (and never prompts) when the Prompt API is not available", async () => {
     const s = fake("[]", { availability: "downloadable" });
     const d = new NanoDetector(s);

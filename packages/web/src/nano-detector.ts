@@ -1,5 +1,6 @@
 import type { DetectorStatus, OptionalDetector, Span } from "@splita/core";
 import { chunkText, locateEntities, NANO_RESPONSE_SCHEMA, parseNanoEntities } from "./nano-parse.js";
+import { mapLimit } from "./concurrency.js";
 import type { PromptOptions } from "./nano-session.js";
 
 /** The slice of NanoSession the detector needs (mockable in tests). */
@@ -14,6 +15,8 @@ export interface NanoDetectorOptions {
   /** Budget for one whole detect() or warmUp(). */
   timeoutMs?: number;
   chunkChars?: number;
+  /** Chunks prompted at once (each on its own clone of the warm session). */
+  concurrency?: number;
 }
 
 export class NanoTimeoutError extends Error {
@@ -58,6 +61,7 @@ export class NanoDetector implements OptionalDetector {
   private _lastError: string | undefined;
   private readonly timeoutMs: number;
   private readonly chunkChars: number;
+  private readonly concurrency: number;
 
   constructor(
     private readonly session: NanoPrompter,
@@ -65,6 +69,7 @@ export class NanoDetector implements OptionalDetector {
   ) {
     this.timeoutMs = opts.timeoutMs ?? 20_000;
     this.chunkChars = opts.chunkChars ?? 2_000;
+    this.concurrency = opts.concurrency ?? 2;
   }
 
   get status(): DetectorStatus {
@@ -78,12 +83,11 @@ export class NanoDetector implements OptionalDetector {
 
   async detect(text: string): Promise<Span[]> {
     return this.guard(async (signal) => {
-      const spans: Span[] = [];
-      for (const chunk of chunkText(text, this.chunkChars)) {
+      const perChunk = await mapLimit(chunkText(text, this.chunkChars), this.concurrency, async (chunk) => {
         const raw = await this.session.prompt(nanoPrompt(chunk.text), { responseConstraint: NANO_RESPONSE_SCHEMA, signal });
-        spans.push(...locateEntities(chunk, parseNanoEntities(raw)));
-      }
-      return spans;
+        return locateEntities(chunk, parseNanoEntities(raw));
+      });
+      return perChunk.flat();
     }, []);
   }
 
