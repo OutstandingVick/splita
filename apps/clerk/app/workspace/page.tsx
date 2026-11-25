@@ -11,17 +11,33 @@ import { ReceiptCard } from "@/components/workspace/receipt-card";
 import { VerifyButton } from "@/components/workspace/verify-button";
 import { PipelineStrip } from "@/components/workspace/pipeline-strip";
 import { SplitView } from "@/components/workspace/split-view";
+import { DEMO_MATTER_ID, demoMatter } from "@/lib/matters";
+import { getSplita } from "@/lib/splita";
 import { useAsk } from "@/lib/use-ask";
 import { useMatters } from "@/lib/use-matters";
 
 function Workspace() {
   const params = useSearchParams();
-  const { matters, loaded, selected, select, create, update } = useMatters(params.get("matter"));
+  const { matters, loaded, selected, select, create, update, remove } = useMatters(params.get("matter"));
   const { online } = useDeviceStatus();
   const { ask, stateFor } = useAsk();
   const state = stateFor(selected?.id);
   const outcome = state.outcome;
   const [showCloud, setShowCloud] = useState(false);
+
+  /** Deleting a matter also erases its identity vault from this device. The demo resets instead. */
+  async function discard(id: string) {
+    const demo = id === DEMO_MATTER_ID;
+    const msg = demo
+      ? "Reset the demo matter? Its text is restored and its identity vault on this device is cleared."
+      : "Delete this matter? Its document, question and identity vault are erased from this device. Receipts in Firestore stay.";
+    if (!window.confirm(msg)) return;
+    await getSplita().vault.clearWorkspace(id);
+    if (demo) {
+      const d = demoMatter();
+      update(id, { title: d.title, document: d.document, question: d.question });
+    } else remove(id);
+  }
 
   return (
     <div className="mx-auto grid max-w-7xl gap-6 px-6 py-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
@@ -34,12 +50,21 @@ function Workspace() {
           <div className="h-96 animate-pulse rounded-xl bg-stone-100" />
         ) : selected ? (
           <>
-            <input
-              aria-label="Matter name"
-              value={selected.title}
-              onChange={(e) => update(selected.id, { title: e.target.value })}
-              className="w-full bg-transparent text-2xl font-semibold tracking-tight outline-none focus-visible:outline-2"
-            />
+            <div className="flex items-center gap-3">
+              <input
+                aria-label="Matter name"
+                value={selected.title}
+                onChange={(e) => update(selected.id, { title: e.target.value })}
+                className="min-w-0 flex-1 bg-transparent text-2xl font-semibold tracking-tight outline-none focus-visible:outline-2"
+              />
+              <button
+                type="button"
+                onClick={() => void discard(selected.id)}
+                className="shrink-0 rounded-md px-2 py-1 text-xs text-stone-500 hover:bg-stone-100 hover:text-stone-800"
+              >
+                {selected.id === DEMO_MATTER_ID ? "Reset demo" : "Delete matter"}
+              </button>
+            </div>
             <DocumentEditor
               document={selected.document}
               question={selected.question}
