@@ -13,6 +13,7 @@ const fake = (reply: string | ((p: string) => string), opts: { delayMs?: number;
       f.warm = true;
     },
     async prompt(p) {
+      f.warm = true;
       f.prompts.push(p);
       if (opts.delayMs) await new Promise((r) => setTimeout(r, opts.delayMs));
       return typeof reply === "string" ? reply : reply(p);
@@ -86,6 +87,18 @@ describe("NanoDetector", () => {
     await expect(d.detect("x")).resolves.toEqual([]);
     expect(d.status).toBe("error");
     expect(d.lastError).toContain("InvalidStateError");
+  });
+});
+
+describe("NanoDetector.lastRun", () => {
+  it("marks the first run cold and runs after warm-up warm", async () => {
+    let t = 0;
+    const s = fake("[]");
+    const d = new NanoDetector(s, { now: () => (t += 100) });
+    await d.detect("Kunle");
+    expect(d.lastRun).toEqual({ warm: false, ms: 100, chunks: 1 });
+    await d.detect("Kunle");
+    expect(d.lastRun?.warm).toBe(true);
   });
 });
 

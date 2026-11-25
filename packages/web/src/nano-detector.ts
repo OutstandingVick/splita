@@ -18,6 +18,14 @@ export interface NanoDetectorOptions {
   chunkChars?: number;
   /** Chunks prompted at once (each on its own clone of the warm session). */
   concurrency?: number;
+  now?: () => number;
+}
+
+/** How the last detect() went: `warm` means the base session already existed when it started. */
+export interface NanoRun {
+  warm: boolean;
+  ms: number;
+  chunks: number;
 }
 
 export class NanoTimeoutError extends Error {
@@ -76,6 +84,8 @@ export class NanoDetector implements OptionalDetector {
   private readonly timeoutMs: number;
   private readonly chunkChars: number;
   private readonly concurrency: number;
+  private readonly now: () => number;
+  private _lastRun: NanoRun | undefined;
 
   constructor(
     private readonly session: NanoPrompter,
@@ -84,10 +94,15 @@ export class NanoDetector implements OptionalDetector {
     this.timeoutMs = opts.timeoutMs ?? 20_000;
     this.chunkChars = opts.chunkChars ?? 2_000;
     this.concurrency = opts.concurrency ?? 2;
+    this.now = opts.now ?? (() => performance.now());
   }
 
   get status(): DetectorStatus {
     return this._status;
+  }
+
+  get lastRun(): NanoRun | undefined {
+    return this._lastRun;
   }
 
   /** Diagnostic message for the last failure (never contains document text). */
@@ -96,13 +111,18 @@ export class NanoDetector implements OptionalDetector {
   }
 
   async detect(text: string, known: readonly Span[] = []): Promise<Span[]> {
-    return this.guard(async (signal) => {
-      const perChunk = await mapLimit(chunkText(text, this.chunkChars), this.concurrency, async (chunk) => {
+    const warm = this.session.warm;
+    const t0 = this.now();
+    const chunks = chunkText(text, this.chunkChars);
+    const spans = await this.guard(async (signal) => {
+      const perChunk = await mapLimit(chunks, this.concurrency, async (chunk) => {
         const raw = await this.session.prompt(nanoPrompt(chunk.text, namesInChunk(chunk, known)), { responseConstraint: NANO_RESPONSE_SCHEMA, signal });
         return locateEntities(chunk, parseNanoEntities(raw));
       });
       return perChunk.flat();
     }, []);
+    this._lastRun = { warm, ms: Math.round(this.now() - t0), chunks: chunks.length };
+    return spans;
   }
 
   /** Creates the warm base session on page load so the first real detect skips session setup. */

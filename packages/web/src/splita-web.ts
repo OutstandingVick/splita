@@ -14,7 +14,7 @@ import { createCloudModel, FirebaseReasoner } from "./firebase-reasoner.js";
 import { ensureAnonymousUser, FirestoreReceipts } from "./firestore-receipts.js";
 import { WebCryptoHasher } from "./hasher.js";
 import { IndexedDBVault } from "./indexeddb-vault.js";
-import type { NanoDetector, NanoDetectorOptions } from "./nano-detector.js";
+import type { NanoDetector, NanoDetectorOptions, NanoRun } from "./nano-detector.js";
 import { createNanoDetector, warmUpNano } from "./nano-model.js";
 
 export interface SplitaWebOptions {
@@ -35,6 +35,8 @@ export type SplitaRunResult = SplitaResult & {
   mode: DetectionMode;
   nanoStatus: DetectorStatus;
   nanoError?: string;
+  /** Nano pass timing (warm vs cold), when Nano ran. */
+  nanoRun?: NanoRun;
 };
 
 export interface SplitaWeb {
@@ -91,7 +93,9 @@ export function createSplitaWeb(opts: SplitaWebOptions): SplitaWeb {
     async run({ workspaceId, text, question }) {
       const result = await runSplita({ workspaceId, text: composePrompt(question, text) }, deps);
       const nanoError = nano?.lastError;
+      const nanoRun = nano?.lastRun;
       return {
+        ...(nanoRun ? { nanoRun } : {}),
         ...result,
         mode: detector.lastMode,
         nanoStatus: nano?.status ?? "unavailable",
