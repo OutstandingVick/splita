@@ -5,17 +5,17 @@
 | Port | Adapter | Notes |
 |---|---|---|
 | `DetectorPort` | `CompositeDetector` (core) = `RulesDetector` + `NanoDetector` | Rules run first (milliseconds), and their spans are passed to Nano. Spans merge longest-first, and rules win ties. If Nano is anything but `ready`, the mode drops to `rules-only`. |
-| | `NanoDetector` + `NanoSession` | Gemini Nano through Chrome's Prompt API. One base session is created at warm-up, and each chunk runs on a `clone()` of it, two chunks at a time. It asks only for PERSON and ORG names that rules didn't already find, with a JSON Schema `responseConstraint`. Each answer is mapped back to every whole-word occurrence, so hallucinated names find no match and are dropped. 20 s budget; never throws. `lastRun` reports warm vs cold timing. |
+| | `NanoDetector` | Firebase AI Logic `ONLY_ON_DEVICE` with a JSON Schema `responseConstraint`, behind the single-flight `OnDeviceQueue`. Chunks of about 4,000 chars run one after another, and chunks where rules covered every name candidate are skipped. It asks only for PERSON and ORG names rules didn't already find. Answers are mapped back to whole-word occurrences, so hallucinated names are dropped. 20 s budget; never throws. `lastRun` reports warm vs cold timing and chunks prompted. |
 | `ReasonerPort` | `FirebaseReasoner` | `ONLY_IN_CLOUD` on `gemini-3.5-flash-lite`, with a system instruction to keep placeholders verbatim and never guess real values. `source` comes from `response.inferenceSource`. |
 | `VaultPort` | `IndexedDBVault` | DB `splita-vault`, one object store per workspace (`ws:<id>`), plus `clearWorkspace()`. It stays on this device and is never synced. |
 | `ReceiptPort` | `FirestoreReceipts` | `users/{uid}/receipts/{receiptId}` under anonymous Auth. A field whitelist (`assertSafeReceipt`) runs before every write, so raw text and the mapping can't be stored. |
 | `HasherPort` | `WebCryptoHasher` | `crypto.subtle` SHA-256, hex output. |
 
-`createSplitaWeb({ ai, auth, firestore })` returns `{ run, warmUpNano, signIn, vault, nanoStatus }`. `run({ workspaceId, text, question })` pseudonymizes the question and the document together, so names in the question never leave the device either.
+`createSplitaWeb({ ai, auth, firestore })` returns `{ run, explain, warmUpNano, signIn, vault, nanoStatus, nanoError }`. `run({ workspaceId, text, question })` pseudonymizes the question and the document together, so names in the question never leave the device either.
 
-### Why Nano doesn't go through Firebase AI Logic
+### Firebase AI Logic hybrid inference
 
-Firebase's on-device adapter (`@firebase/ai` 3.1.0, `ChromeAdapterImpl.createSession`) creates a new `LanguageModel` session on every `generateContent()` and destroys the previous one. Overlapping calls (warm-up and a run, or parallel chunks) kill each other's sessions, and nothing stays warm. Detection therefore uses the Prompt API directly (`nano-session.ts`). Cloud reasoning still uses Firebase AI Logic (`ONLY_IN_CLOUD`, App Check), and `/spike` still shows the hybrid modes.
+Every call site and its `InferenceMode` is listed in the README under [How Splita uses Firebase AI Logic hybrid inference](../README.md#how-splita-uses-firebase-ai-logic-hybrid-inference).
 
 ### Public terms are never redacted
 
@@ -59,12 +59,12 @@ npx firebase-tools deploy --only firestore
 pnpm --filter @splita/clerk dev
 ```
 
-`predev` builds `core` and `web` first. Open `http://localhost:3000/pipeline-test` in Chrome with Gemini Nano enabled (see PHASE0.md). The page warms Nano up on load and logs the cause to the console if warm-up fails. It shows the detection mode, warm/cold Nano timing, the anonymized text with each placeholder highlighted (hover for its type and whether rules or Nano found it, never the value), both answers rendered as Markdown, whole-ms stage timings and the receipt.
+`predev` builds `core` and `web` first. Open `http://localhost:3000/pipeline-test` in Chrome with Gemini Nano enabled (see PHASE0.md). The page warms Nano up on load and logs the cause to the console if warm-up fails. It shows the detection mode, warm/cold Nano timing, the anonymized text with each placeholder highlighted (hover for its type and whether rules or Nano found it, never the value), both answers rendered as Markdown, **Quick explain** (`PREFER_ON_DEVICE`, with an on-device/cloud badge), whole-ms stage timings and the receipt.
 
 **Reset vault** clears this workspace's mappings, so placeholders restart at `_1`.
 
 ## Tests
 
 - `packages/core`: public-term allowlist, rules-first composite detection, placeholder info.
-- `packages/web`: Nano session reuse and cloning, concurrency cap, rule-found skip list, warm/cold timing, hasher, Nano parsing, chunking and offset mapping, the Nano detector (timeout, unavailable, error, warm-up), the reasoner, receipt safety, and Firestore receipts with `firebase/firestore` mocked.
+- `packages/web`: single-flight on-device queue, warm-up ordering, name-candidate skip, rule-found skip list, warm/cold timing, Quick explain guard, hasher, Nano parsing, chunking and offset mapping, the Nano detector (timeout, unavailable, error, warm-up), the reasoner, receipt safety, and Firestore receipts with `firebase/firestore` mocked.
 - `IndexedDBVault` has no unit tests, because that would need a fake IndexedDB dependency. `/pipeline-test` checks it in a real browser.
