@@ -13,6 +13,12 @@ describe("restore", () => {
     expect(restore("EMPLOYER_1 owes AMOUNT_NGN_MID_1.", mapping)).toBe("Zenith Bank Plc owes ₦850,000.");
   });
 
+  it("keeps possessives and plurals", () => {
+    expect(restore("EMPLOYER_1's policy; EMPLOYER_1’s HR; two EMPLOYER_1s", mapping)).toBe(
+      "Zenith Bank Plc's policy; Zenith Bank Plc’s HR; two Zenith Bank Plcs",
+    );
+  });
+
   it("leaves unknown placeholders untouched", () => {
     expect(restore("EMPLOYER_2 and PERSON_9 remain.", mapping)).toBe("EMPLOYER_2 and PERSON_9 remain.");
   });

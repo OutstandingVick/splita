@@ -1,6 +1,7 @@
 import type { Entity, Mapping } from "./types.js";
 
-const PLACEHOLDER = /\b([A-Z]+(?:_[A-Z]+)*_\d+)(?![A-Za-z0-9_])/g;
+/** Placeholder plus optional possessive ("EMPLOYER_1's") or plural ("EMPLOYEE_1s") suffix. */
+const PLACEHOLDER = /\b([A-Z]+(?:_[A-Z]+)*_\d+)(['’]s|s)?(?![A-Za-z0-9_])/g;
 
 export function mappingFromEntities(entities: readonly Entity[]): Mapping {
   const m: Mapping = {};
@@ -13,7 +14,8 @@ export function mappingFromEntities(entities: readonly Entity[]): Mapping {
  * workspace's mapping are replaced; anything else is left exactly as written.
  */
 export function restore(answer: string, mapping: Mapping): string {
-  return answer.replace(PLACEHOLDER, (match: string, ph: string) =>
-    Object.hasOwn(mapping, ph) ? (mapping[ph]?.canonical ?? match) : match,
-  );
+  return answer.replace(PLACEHOLDER, (match: string, ph: string, suffix: string | undefined) => {
+    const e = Object.hasOwn(mapping, ph) ? mapping[ph] : undefined;
+    return e ? e.canonical + (suffix ?? "") : match;
+  });
 }
