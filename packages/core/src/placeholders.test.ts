@@ -18,6 +18,16 @@ describe("placeholderPrefix", () => {
   });
 });
 
+describe("location placeholders", () => {
+  it.each([
+    ["Lagos", "CITY_NG"],
+    ["Bayelsa State", "STATE_NG"],
+    ["12 Adeola Odeku Street", "ADDRESS"],
+  ])("%s → %s", (canonical, p) => {
+    expect(placeholderPrefix({ type: "LOCATION", canonical })).toBe(p);
+  });
+});
+
 describe("nextPlaceholder", () => {
   it("continues numbering per prefix", () => {
     expect(nextPlaceholder("PERSON", [])).toBe("PERSON_1");

@@ -21,6 +21,14 @@ describe("RulesDetector", () => {
     expect(await detect("Pay Eze Properties Limited now")).toEqual([["ORG", "Eze Properties Limited"]]);
   });
 
+  it("detects locations, with addresses beating names inside them", async () => {
+    expect(await detect("at 12 Adeola Odeku Street, Victoria Island, Lagos.")).toEqual([
+      ["LOCATION", "12 Adeola Odeku Street"],
+      ["LOCATION", "Victoria Island"],
+      ["LOCATION", "Lagos"],
+    ]);
+  });
+
   it("marks every span as rules-sourced", async () => {
     const spans = await new RulesDetector().detect("Ngozi Okafor, ngozi@x.ng");
     expect(spans.every((s) => s.source === "rules")).toBe(true);

@@ -1,4 +1,5 @@
 import { moneyPlaceholderPrefix } from "./money.js";
+import { locationKind } from "./rules/location.js";
 import type { Entity, EntityType } from "./types.js";
 
 const TYPE_PREFIX: Record<EntityType, string> = {
@@ -12,9 +13,10 @@ const TYPE_PREFIX: Record<EntityType, string> = {
   DATE_OF_BIRTH: "DOB",
 };
 
-/** EMPLOYER / TENANT for role-tagged people and orgs, AMOUNT_NGN_MID for money, else the type. */
+/** EMPLOYER / TENANT for role-tagged people and orgs, AMOUNT_NGN_MID for money, CITY_NG / STATE_NG / ADDRESS for places. */
 export function placeholderPrefix(e: Pick<Entity, "type" | "role" | "canonical">): string {
   if (e.type === "MONEY") return moneyPlaceholderPrefix(e.canonical);
+  if (e.type === "LOCATION") return locationKind(e.canonical);
   if (e.role && (e.type === "PERSON" || e.type === "ORG")) return e.role.toUpperCase();
   return TYPE_PREFIX[e.type];
 }

@@ -2,6 +2,7 @@ import { resolveOverlaps } from "./overlap.js";
 import type { DetectorPort } from "./ports.js";
 import { detectDatesOfBirth } from "./rules/dob.js";
 import { detectEmails } from "./rules/email.js";
+import { detectAddresses, detectPlaces } from "./rules/location.js";
 import type { Rule } from "./rules/match.js";
 import { detectDollarAmounts, detectNairaAmounts } from "./rules/money.js";
 import { detectAccountNumbers } from "./rules/nuban.js";
@@ -20,6 +21,8 @@ export const DEFAULT_RULES: readonly Rule[] = [
   detectTitledPersons,
   detectDictionaryPersons,
   detectOrgs,
+  detectPlaces,
+  detectAddresses,
 ];
 
 /** Deterministic, offline detector. Runs every rule, then resolves overlaps (longest wins). */
