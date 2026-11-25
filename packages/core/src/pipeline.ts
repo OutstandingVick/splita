@@ -1,6 +1,7 @@
 import { assertNoLeak } from "./leak.js";
 import { resolveOverlaps } from "./overlap.js";
 import type { DetectorPort, HasherPort, ReasonerPort, ReceiptPort, VaultPort } from "./ports.js";
+import { dropPublicTerms } from "./public-terms.js";
 import { pseudonymize } from "./pseudonymize.js";
 import { countEntities, detectorSources, receiptHash, sealReceipt } from "./receipt.js";
 import { resolveEntities } from "./resolver.js";
@@ -62,8 +63,9 @@ export async function runSplita(input: SplitaInput, deps: SplitaDeps): Promise<S
   try {
     const { workspaceId, text } = input;
 
+    // Merge every detector's spans, then un-redact public institutions and statutes.
     const spans = await timed("detect", async () =>
-      resolveOverlaps((await Promise.all(deps.detectors.map((d) => d.detect(text)))).flat()),
+      dropPublicTerms(resolveOverlaps((await Promise.all(deps.detectors.map((d) => d.detect(text)))).flat()), text),
     );
 
     const { entities, mentions } = await timed("resolve", async () => {

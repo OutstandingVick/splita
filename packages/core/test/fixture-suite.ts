@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import { InMemoryVault } from "../src/memory-vault.js";
+import type { DetectorPort } from "../src/ports.js";
 import { runSplita, type SplitaSuccess } from "../src/pipeline.js";
 import { InMemoryReceiptLog } from "../src/receipt.js";
 import { mappingFromEntities, restore } from "../src/restore.js";
@@ -15,12 +16,12 @@ export interface FixtureExpectations {
   secrets: string[];
 }
 
-export async function runFixture(text: string) {
+export async function runFixture(text: string, extraDetectors: DetectorPort[] = []) {
   const vault = new InMemoryVault();
   const reasoner = fakeReasoner();
   const r = await runSplita(
     { workspaceId: "fixture", text },
-    { detectors: [new RulesDetector()], vault, reasoner, receipts: new InMemoryReceiptLog(), hasher: webCryptoHasher },
+    { detectors: [new RulesDetector(), ...extraDetectors], vault, reasoner, receipts: new InMemoryReceiptLog(), hasher: webCryptoHasher },
   );
   if (!r.ok) throw r.error;
   const entities = await vault.list("fixture");

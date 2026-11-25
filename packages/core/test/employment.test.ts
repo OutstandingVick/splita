@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { DetectorPort } from "../src/ports.js";
 import { fixtureSuite, runFixture } from "./fixture-suite.js";
 import { employmentDispute } from "./fixtures/employment.js";
 
@@ -25,6 +26,18 @@ describe("fixture: employment contract dispute", () => {
       Lagos: "CITY_NG_2",
     },
     secrets: ["Ogunleye", "Zenith", "Nwosu", "Funmilayo", "1988", "4567", "Adeola Odeku", "Victoria Island", "Lagos"],
+  });
+
+  it("keeps public institutions visible even when a detector flags them", async () => {
+    const court = "National Industrial Court";
+    const overEager: DetectorPort = {
+      detect: async (text) => {
+        const start = text.indexOf(court);
+        return [{ start, end: start + court.length, text: court, type: "ORG", confidence: 0.7, source: "nano" }];
+      },
+    };
+    const { result } = await runFixture(employmentDispute, [overEager]);
+    expect(result.cloudView.anonymizedText).toContain(court);
   });
 
   it("anonymized output matches the reviewed snapshot", async () => {
