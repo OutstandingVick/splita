@@ -59,7 +59,8 @@ export function useQuickExplain(explain: (term: string) => Promise<Explanation>)
       (e: unknown) => setState({ status: "error", message: e instanceof Error ? e.message : String(e) }),
     );
   };
-  return { state, pick };
+  const fail = (message: string) => setState({ status: "error", message });
+  return { state, pick, fail };
 }
 
 export function QuickExplainPanel({ state, onExplainSelection }: { state: ExplainState; onExplainSelection: () => void }) {

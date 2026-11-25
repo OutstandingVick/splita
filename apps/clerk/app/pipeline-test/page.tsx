@@ -65,11 +65,12 @@ export default function PipelineTestPage() {
   function explainSelection() {
     const sel = window.getSelection();
     const box = cloudAnswerRef.current;
-    if (!sel || !box || !sel.anchorNode || !box.contains(sel.anchorNode) || !box.contains(sel.focusNode)) {
-      explain.pick("");
+    const picked = sel?.toString().trim();
+    if (!sel || !box || !picked || !sel.anchorNode || !box.contains(sel.anchorNode) || !box.contains(sel.focusNode)) {
+      explain.fail("Select a term inside the raw cloud answer first. Only anonymized text can be explained.");
       return;
     }
-    explain.pick(sel.toString());
+    explain.pick(picked);
   }
 
   useEffect(() => {
