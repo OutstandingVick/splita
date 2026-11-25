@@ -73,7 +73,7 @@ export async function runSplita(input: SplitaInput, deps: SplitaDeps): Promise<S
     stage = s;
     const t0 = now();
     const out = await fn();
-    timings[s] = now() - t0;
+    timings[s] = Math.round(now() - t0);
     return out;
   };
 

@@ -47,6 +47,11 @@ describe("fixture: employment contract dispute", () => {
     expect(JSON.stringify(info)).not.toMatch(/Ogunleye|Zenith|Lagos|0123456789/);
   });
 
+  it("records stage timings as whole milliseconds", async () => {
+    const { result } = await runFixture(employmentDispute);
+    for (const ms of Object.values(result.receipt.timings)) expect(Number.isInteger(ms)).toBe(true);
+  });
+
   it("anonymized output matches the reviewed snapshot", async () => {
     const { result } = await runFixture(employmentDispute);
     expect(result.cloudView.anonymizedText).toMatchSnapshot();
