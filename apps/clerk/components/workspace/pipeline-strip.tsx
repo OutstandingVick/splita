@@ -26,11 +26,10 @@ export function PipelineStrip({ progress }: { progress: Progress }) {
           const st = progress.steps[s.id];
           return (
             <li key={s.id} className="relative" title={s.hint} aria-current={st.status === "active" ? "step" : undefined}>
-              {i > 0 && (
+              {i < STEPS.length - 1 && (
                 <span
                   aria-hidden
-                  className={`absolute -left-2 top-[7px] h-px w-[calc(100%-0.75rem)] -translate-x-full ${st.status === "pending" || st.status === "skipped" ? "bg-stone-200" : "bg-accent-600"}`}
-                  style={{ width: "calc(100% - 1rem)", left: "calc(-100% + 1.25rem)" }}
+                  className={`absolute left-5 right-0 top-[6px] h-0.5 rounded-full transition-colors ${st.status === "done" ? "bg-accent-600" : "bg-stone-200"}`}
                 />
               )}
               <span aria-hidden className={`relative z-10 block h-3.5 w-3.5 rounded-full border-2 transition-colors ${DOT[st.status]}`} />
