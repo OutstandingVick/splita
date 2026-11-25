@@ -8,6 +8,8 @@ import {
   ReCaptchaEnterpriseProvider,
 } from "firebase/app-check";
 import { type AI, getAI, GoogleAIBackend } from "firebase/ai";
+import { type Auth, getAuth } from "firebase/auth";
+import { type Firestore, getFirestore } from "firebase/firestore";
 
 declare global {
   // App Check reads this global before initializeAppCheck. `true` makes the SDK
@@ -48,6 +50,8 @@ export interface FirebaseClients {
   app: FirebaseApp;
   appCheck: AppCheck;
   ai: AI;
+  auth: Auth;
+  firestore: Firestore;
 }
 
 let clients: FirebaseClients | undefined;
@@ -84,7 +88,7 @@ function initAppCheck(app: FirebaseApp): AppCheck {
   });
 }
 
-/** Lazily initializes Firebase, App Check and AI Logic. Browser-only. */
+/** Lazily initializes Firebase, App Check, AI Logic, Auth and Firestore. Browser-only. */
 export function getFirebase(): FirebaseClients {
   if (clients) return clients;
   if (typeof window === "undefined") {
@@ -106,6 +110,6 @@ export function getFirebase(): FirebaseClients {
 
   const ai = getAI(app, { backend: new GoogleAIBackend() });
 
-  clients = { app, appCheck, ai };
+  clients = { app, appCheck, ai, auth: getAuth(app), firestore: getFirestore(app) };
   return clients;
 }

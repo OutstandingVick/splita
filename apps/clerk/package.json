@@ -7,9 +7,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "predev": "pnpm --filter @splita/core --filter @splita/web build"
   },
   "dependencies": {
+    "@splita/core": "workspace:*",
+    "@splita/web": "workspace:*",
     "firebase": "^13.4.0",
     "next": "^16.4.6",
     "react": "^19.3.1",
