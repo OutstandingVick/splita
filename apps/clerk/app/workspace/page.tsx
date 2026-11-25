@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useDeviceStatus } from "@/components/device-status";
 import { AnswerPanel } from "@/components/workspace/answer-panel";
 import { DocumentEditor } from "@/components/workspace/document-editor";
@@ -24,6 +24,11 @@ function Workspace() {
   const state = stateFor(selected?.id);
   const outcome = state.outcome;
   const [showCloud, setShowCloud] = useState(false);
+
+  // Fetch the matter's latest receipt ahead of time so the Receipt stage is a single write.
+  useEffect(() => {
+    if (selected?.id && online) void getSplita().warmUpCloud(selected.id);
+  }, [selected?.id, online]);
 
   /** Deleting a matter also erases its identity vault from this device. The demo resets instead. */
   async function discard(id: string) {
