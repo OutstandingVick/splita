@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Inter } from "next/font/google";
 import type { ReactNode } from "react";
+import { DeviceStatusProvider, StatusBadge } from "@/components/device-status";
 import { SiteHeader } from "@/components/site-header";
 import "./globals.css";
 
@@ -16,8 +17,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} ${plexMono.variable}`}>
       <body className="min-h-screen bg-stone-50 font-sans text-stone-900 antialiased">
-        <SiteHeader />
-        {children}
+        <DeviceStatusProvider>
+          <SiteHeader status={<StatusBadge />} />
+          {children}
+        </DeviceStatusProvider>
       </body>
     </html>
   );
