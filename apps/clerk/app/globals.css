@@ -1,1 +1,32 @@
 @import "tailwindcss";
+
+/*
+ * Splita design tokens. One accent (deep teal, "kept on this device"); amber and violet are
+ * reserved for detector marks (rules / Gemini Nano) so they always mean the same thing.
+ */
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
+
+  --color-accent-50: #effbf8;
+  --color-accent-100: #d6f3ec;
+  --color-accent-600: #0f7b6c;
+  --color-accent-700: #0b6357;
+  --color-accent-800: #0a4f46;
+
+  --color-rules: #fde68a;
+  --color-rules-ink: #78350f;
+  --color-nano: #ddd6fe;
+  --color-nano-ink: #4c1d95;
+}
+
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-accent-600);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  ::selection {
+    background: var(--color-accent-100);
+  }
+}
