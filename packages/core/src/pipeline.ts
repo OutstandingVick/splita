@@ -4,9 +4,9 @@ import type { DetectorPort, HasherPort, ReasonerPort, ReceiptPort, VaultPort } f
 import { dropPublicTerms } from "./public-terms.js";
 import { pseudonymize } from "./pseudonymize.js";
 import { countEntities, detectorSources, receiptHash, sealReceipt } from "./receipt.js";
-import { resolveEntities } from "./resolver.js";
+import { type Mention, resolveEntities } from "./resolver.js";
 import { mappingFromEntities, restore } from "./restore.js";
-import type { DetectorSource, EntityType, Mapping, Receipt, Span, Stage, StageTimings } from "./types.js";
+import type { DetectorSource, Entity, EntityType, Mapping, Receipt, Span, Stage, StageTimings } from "./types.js";
 
 export interface SplitaDeps {
   detectors: readonly DetectorPort[];
@@ -42,12 +42,31 @@ export function placeholderInfo(mapping: Mapping, spans: readonly Span[]): Place
   });
 }
 
+/** Where a placeholder's real value sits in the text that was anonymized. On-device only: never sent or stored. */
+export interface SourceSpan {
+  start: number;
+  end: number;
+  placeholder: string;
+}
+
+export function sourceSpans(mentions: readonly Mention[], entities: readonly Entity[]): SourceSpan[] {
+  const byId = new Map(entities.map((e) => [e.id, e.placeholder]));
+  return mentions
+    .flatMap((m) => {
+      const placeholder = byId.get(m.entityId);
+      return placeholder ? [{ start: m.span.start, end: m.span.end, placeholder }] : [];
+    })
+    .sort((a, b) => a.start - b.start);
+}
+
 export interface SplitaSuccess {
   ok: true;
   /** Cloud answer with real identities restored on-device. */
   answer: string;
   /** Exactly what the cloud saw and said. */
   cloudView: { anonymizedText: string; cloudAnswer: string; placeholders: PlaceholderInfo[] };
+  /** The original text and where each placeholder came from. Stays on this device. */
+  localView: { text: string; spans: SourceSpan[] };
   receipt: Receipt;
 }
 
@@ -166,7 +185,10 @@ export async function runSplita(input: SplitaInput, deps: SplitaDeps, hooks: Spl
         anonymizedText: pseudo.anonymizedText,
         cloudAnswer: cloud.text,
         placeholders: placeholderInfo(pseudo.mapping, pseudo.spans),
-      }, receipt };
+      },
+      localView: { text, spans: sourceSpans(mentions, entities) },
+      receipt,
+    };
   } catch (e) {
     emit({ stage: current, phase: "error" });
     return { ok: false, stage, error: e instanceof Error ? e : new Error(String(e)) };

@@ -128,4 +128,17 @@ describe("runSplita", () => {
     expect(r.ok).toBe(false);
     expect(events.at(-1)).toBe("reason:error");
   });
+
+  it("returns where each placeholder came from, for on-device display only", async () => {
+    const { d } = deps();
+    const r = await runSplita({ workspaceId: "w", text: TEXT }, d);
+    if (!r.ok) throw r.error;
+    const pairs = r.localView.spans.map((s) => [TEXT.slice(s.start, s.end), s.placeholder]);
+    expect(pairs).toEqual([
+      ["Mr. Adebayo Ogunleye", "EMPLOYEE_1"],
+      ["Zenith Bank Plc", "EMPLOYER_1"],
+      ["₦850,000", "AMOUNT_NGN_MID_1"],
+    ]);
+    expect(JSON.stringify(r.receipt)).not.toContain("Ogunleye");
+  });
 });
