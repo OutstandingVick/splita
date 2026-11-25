@@ -10,7 +10,7 @@ import {
 import type { AI } from "firebase/ai";
 import type { Auth } from "firebase/auth";
 import type { Firestore } from "firebase/firestore";
-import { createCloudModel, FirebaseReasoner } from "./firebase-reasoner.js";
+import { CLOUD_MODEL, createCloudModel, FALLBACK_CLOUD_MODEL, FirebaseReasoner } from "./firebase-reasoner.js";
 import { ensureAnonymousUser, FirestoreReceipts } from "./firestore-receipts.js";
 import { WebCryptoHasher } from "./hasher.js";
 import { IndexedDBVault } from "./indexeddb-vault.js";
@@ -23,6 +23,10 @@ export interface SplitaWebOptions {
   ai: AI;
   firestore: Firestore;
   auth: Auth;
+  /** Primary cloud model (ONLY_IN_CLOUD). */
+  cloudModel?: string;
+  /** Cloud model tried after the primary's retries run out, or false for none. */
+  fallbackCloudModel?: string | false;
   /** Nano options, or false to run rules-only. */
   nano?: NanoDetectorOptions | false;
 }
@@ -69,6 +73,8 @@ export function createSplitaWeb(opts: SplitaWebOptions): SplitaWeb {
   const explainer = new QuickExplainer(queued(createExplainModel(opts.ai), onDevice));
   const detector = new CompositeDetector(new RulesDetector(), nano);
   const vault = new IndexedDBVault();
+  const cloudModel = opts.cloudModel ?? CLOUD_MODEL;
+  const fallbackName = opts.fallbackCloudModel === false ? undefined : (opts.fallbackCloudModel ?? FALLBACK_CLOUD_MODEL);
 
   let uidPromise: Promise<string> | undefined;
   const signIn = () => {
@@ -82,7 +88,10 @@ export function createSplitaWeb(opts: SplitaWebOptions): SplitaWeb {
   const deps: SplitaDeps = {
     detectors: [detector],
     vault,
-    reasoner: new FirebaseReasoner(createCloudModel(opts.ai)),
+    reasoner: new FirebaseReasoner(createCloudModel(opts.ai, cloudModel), {
+      modelName: cloudModel,
+      ...(fallbackName ? { fallback: { name: fallbackName, model: createCloudModel(opts.ai, fallbackName) } } : {}),
+    }),
     receipts: new FirestoreReceipts(opts.firestore, signIn),
     hasher: new WebCryptoHasher(),
     now: () => performance.now(),

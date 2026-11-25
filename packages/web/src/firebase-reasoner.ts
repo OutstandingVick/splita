@@ -2,6 +2,8 @@ import type { InferenceSource, ReasonerPort, ReasonerResult } from "@splita/core
 import { type AI, getGenerativeModel, InferenceMode } from "firebase/ai";
 
 export const CLOUD_MODEL = "gemini-3.5-flash-lite";
+/** Second cloud model, tried once the primary has exhausted its retries. */
+export const FALLBACK_CLOUD_MODEL = "gemini-2.5-flash";
 
 export const REASONER_SYSTEM_INSTRUCTION = `You are a careful Nigerian legal assistant helping a lawyer or a member of the public understand a document.
 
@@ -37,10 +39,21 @@ export function errorStatus(e: unknown): number | undefined {
 
 export const isRetryable = (e: unknown): boolean => (RETRYABLE_STATUSES as readonly number[]).includes(errorStatus(e) ?? 0);
 
+export interface NamedCloudModel {
+  name: string;
+  model: CloudModel;
+}
+
 export interface ReasonerOptions {
   now?: () => number;
+  /** Name of the primary model, recorded in the result. */
+  modelName?: string;
+  /** Tried after the primary's retries run out (or it reports 404). Same ONLY_IN_CLOUD mode, same payload. */
+  fallback?: NamedCloudModel;
   /** Backoff before each retry, before jitter. Length = retries. Default ~1s, 2s. */
   backoffMs?: readonly number[];
+  /** Backoff before switching to the fallback. Default ~4s. */
+  fallbackDelayMs?: number;
   sleep?: (ms: number) => Promise<void>;
   /** 0..1, for jitter. */
   random?: () => number;
@@ -62,6 +75,9 @@ export class FirebaseReasoner implements ReasonerPort {
   private readonly backoffMs: readonly number[];
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly random: () => number;
+  private readonly modelName: string;
+  private readonly fallback: NamedCloudModel | undefined;
+  private readonly fallbackDelayMs: number;
 
   constructor(
     private readonly model: CloudModel,
@@ -72,31 +88,47 @@ export class FirebaseReasoner implements ReasonerPort {
     this.backoffMs = o.backoffMs ?? [1000, 2000];
     this.sleep = o.sleep ?? realSleep;
     this.random = o.random ?? Math.random;
+    this.modelName = o.modelName ?? CLOUD_MODEL;
+    this.fallback = o.fallback;
+    this.fallbackDelayMs = o.fallbackDelayMs ?? 4000;
   }
 
   async reason(anonymizedPrompt: string): Promise<ReasonerResult> {
     const t0 = this.now();
-    for (let attempt = 1; ; attempt++) {
+    let attempts = 0;
+    const call = async (model: CloudModel, name: string): Promise<ReasonerResult> => {
+      attempts++;
+      const result = await model.generateContent(anonymizedPrompt);
+      return {
+        text: result.response.text(),
+        source: result.response.inferenceSource ?? "in_cloud",
+        latencyMs: Math.round(this.now() - t0),
+        attempts,
+        model: name,
+      };
+    };
+
+    for (let retry = 0; ; retry++) {
       try {
-        const result = await this.model.generateContent(anonymizedPrompt);
-        return {
-          text: result.response.text(),
-          source: result.response.inferenceSource ?? "in_cloud",
-          latencyMs: Math.round(this.now() - t0),
-          attempts: attempt,
-        };
+        return await call(this.model, this.modelName);
       } catch (e) {
-        const delay = this.backoffMs[attempt - 1];
-        if (delay === undefined || !isRetryable(e)) throw e;
-        await this.sleep(withJitter(delay, this.random));
+        const delay = this.backoffMs[retry];
+        if (delay !== undefined && isRetryable(e)) {
+          await this.sleep(withJitter(delay, this.random));
+          continue;
+        }
+        // Same anonymized payload, second model. Fail-closed: if it also fails, the error propagates.
+        if (!this.fallback || !(isRetryable(e) || errorStatus(e) === 404)) throw e;
+        await this.sleep(withJitter(this.fallbackDelayMs, this.random));
+        return call(this.fallback.model, this.fallback.name);
       }
     }
   }
 }
 
-export function createCloudModel(ai: AI): CloudModel {
+export function createCloudModel(ai: AI, model: string = CLOUD_MODEL): CloudModel {
   return getGenerativeModel(ai, {
     mode: InferenceMode.ONLY_IN_CLOUD,
-    inCloudParams: { model: CLOUD_MODEL, systemInstruction: REASONER_SYSTEM_INSTRUCTION },
+    inCloudParams: { model, systemInstruction: REASONER_SYSTEM_INSTRUCTION },
   });
 }
