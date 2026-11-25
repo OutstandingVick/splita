@@ -73,3 +73,11 @@ export function cloudStatusText(a: CloudAttempt | null): string | null {
   ];
   return `Retry ${a.attempt - 1} on ${a.model} (${why})…`;
 }
+
+/** Offline preview: the on-device stages ran; nothing after Verify did. */
+export function previewProgress(): Progress {
+  const p = initialProgress();
+  for (const id of ["detect", "pseudonymize", "verify"] as const) p.steps[id] = { status: "done" };
+  for (const id of ["reason", "restore", "receipt"] as const) p.steps[id] = { status: "skipped" };
+  return p;
+}

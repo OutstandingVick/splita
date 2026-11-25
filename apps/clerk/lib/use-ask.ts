@@ -3,7 +3,7 @@
 import type { PreviewResult } from "@splita/core";
 import type { SplitaRunResult } from "@splita/web";
 import { useCallback, useRef, useState } from "react";
-import { applyCloudAttempt, applyStage, initialProgress, markSkipped, type Progress } from "./pipeline-progress";
+import { applyCloudAttempt, applyStage, initialProgress, markSkipped, previewProgress, type Progress } from "./pipeline-progress";
 import { getSplita } from "./splita";
 
 export type Outcome =
@@ -34,7 +34,7 @@ export function useAsk() {
         const splita = getSplita();
         if (!online) {
           const preview = await splita.preview({ workspaceId: matterId, text, question });
-          patch(matterId, (s) => ({ ...s, busy: false, outcome: { kind: "preview", preview } }));
+          patch(matterId, () => ({ busy: false, progress: previewProgress(), outcome: { kind: "preview", preview } }));
           return;
         }
         const result = await splita.run({

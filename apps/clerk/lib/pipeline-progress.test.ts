@@ -1,6 +1,6 @@
 import type { StageEvent } from "@splita/core";
 import { describe, expect, it } from "vitest";
-import { applyStage, cloudStatusText, initialProgress, markSkipped } from "./pipeline-progress";
+import { applyStage, cloudStatusText, initialProgress, markSkipped, previewProgress } from "./pipeline-progress";
 
 const run = (events: StageEvent[]) => events.reduce(applyStage, initialProgress());
 
@@ -33,5 +33,11 @@ describe("pipeline progress", () => {
   it("describes cloud retries", () => {
     expect(cloudStatusText({ attempt: 1, model: "m" })).toBe("Asking m…");
     expect(cloudStatusText({ attempt: 3, model: "m", retryAfter: "rate-limit" })).toBe("Retry 2 on m (rate limited)…");
+  });
+
+  it("shows an offline preview as on-device steps done and the rest skipped", () => {
+    const p = previewProgress();
+    expect(p.steps.verify.status).toBe("done");
+    expect(p.steps.reason.status).toBe("skipped");
   });
 });
