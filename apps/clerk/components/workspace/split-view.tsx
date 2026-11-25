@@ -1,7 +1,7 @@
 "use client";
 
 import type { PlaceholderInfo, SourceSpan } from "@splita/core";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { placeholderTooltip } from "@/components/anonymized-text";
 
 const PLACEHOLDER_RE = /\b[A-Z]+(?:_[A-Z]+)*_\d+\b/g;
@@ -72,7 +72,22 @@ function CloudPane({ cloudText, placeholders, hovered, onHover }: SplitViewProps
   return <>{parts}</>;
 }
 
-export function SplitView(props: SplitViewProps) {
+export function SplitView(outer: SplitViewProps) {
+  // Linked hover is resolved entirely in this component: the real value is looked up on the
+  // device from localView, never from anything the cloud returned.
+  const [hovered, setHovered] = useState<string | null>(null);
+  const localRef = useRef<HTMLPreElement>(null);
+  const props: SplitViewProps = { ...outer, hovered, onHover: setHovered };
+
+  useEffect(() => {
+    if (!hovered || !localRef.current) return;
+    const first = localRef.current.querySelector<HTMLElement>(`[data-placeholder="${CSS.escape(hovered)}"]`);
+    if (!first) return;
+    const pane = localRef.current;
+    const top = first.offsetTop - pane.offsetTop;
+    if (top < pane.scrollTop || top > pane.scrollTop + pane.clientHeight - 24) pane.scrollTo({ top: top - pane.clientHeight / 3, behavior: "smooth" });
+  }, [hovered]);
+
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <section aria-labelledby="your-view-h" className="min-w-0 rounded-xl border border-stone-200 bg-white">
@@ -80,9 +95,9 @@ export function SplitView(props: SplitViewProps) {
           <h3 id="your-view-h" className="text-sm font-semibold">
             Your view
           </h3>
-          <span className="text-xs text-accent-700">Real names · never leaves this device</span>
+          <span className="text-xs text-accent-700">{hovered ? `${hovered} is highlighted` : "Real names · never leaves this device"}</span>
         </header>
-        <pre className="max-h-[28rem] overflow-auto whitespace-pre-wrap p-4 font-mono text-[12.5px] leading-relaxed text-stone-700">
+        <pre ref={localRef} className="relative max-h-[28rem] overflow-auto whitespace-pre-wrap p-4 font-mono text-[12.5px] leading-relaxed text-stone-700">
           <LocalPane {...props} />
         </pre>
       </section>
