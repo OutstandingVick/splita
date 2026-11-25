@@ -3,18 +3,35 @@
 import type { DetectorStatus } from "@splita/core";
 import type { SplitaRunResult } from "@splita/web";
 import { useEffect, useState } from "react";
+import { Markdown } from "@/components/markdown";
 import { EMPLOYMENT_FIXTURE, EMPLOYMENT_QUESTION } from "@/lib/fixtures";
 import { getSplita } from "@/lib/splita";
 
 const WORKSPACE = "pipeline-test";
 
-function Block({ title, children, tone = "plain" }: { title: string; children: string; tone?: "plain" | "cloud" | "local" }) {
-  const toneClass =
-    tone === "cloud" ? "border-amber-300 bg-amber-50" : tone === "local" ? "border-emerald-300 bg-emerald-50" : "border-neutral-200 bg-neutral-50";
+type Tone = "plain" | "cloud" | "local";
+const TONE: Record<Tone, string> = {
+  cloud: "border-amber-300 bg-amber-50",
+  local: "border-emerald-300 bg-emerald-50",
+  plain: "border-neutral-200 bg-neutral-50",
+};
+
+function Block({ title, children, tone = "plain" }: { title: string; children: string; tone?: Tone }) {
   return (
     <section className="space-y-1">
       <h2 className="text-sm font-medium text-neutral-700">{title}</h2>
-      <pre className={`max-h-96 overflow-auto whitespace-pre-wrap rounded border p-3 text-xs ${toneClass}`}>{children}</pre>
+      <pre className={`max-h-96 overflow-auto whitespace-pre-wrap rounded border p-3 text-xs ${TONE[tone]}`}>{children}</pre>
+    </section>
+  );
+}
+
+function MarkdownBlock({ title, text, tone }: { title: string; text: string; tone: Tone }) {
+  return (
+    <section className="space-y-1">
+      <h2 className="text-sm font-medium text-neutral-700">{title}</h2>
+      <div className={`max-h-[32rem] overflow-auto rounded border p-4 ${TONE[tone]}`}>
+        <Markdown text={text} />
+      </div>
     </section>
   );
 }
@@ -113,6 +130,12 @@ export default function PipelineTestPage() {
           <p className="font-mono text-sm">
             mode: <strong data-testid="mode">{result.mode}</strong> · nano: {result.nanoStatus}
             {result.nanoError ? ` (${result.nanoError})` : ""}
+            {result.nanoRun && (
+              <>
+                {" "}· nano pass: <strong data-testid="nano-run">{result.nanoRun.warm ? "warm" : "cold"}</strong> {result.nanoRun.ms} ms over{" "}
+                {result.nanoRun.chunks} chunk{result.nanoRun.chunks === 1 ? "" : "s"}
+              </>
+            )}
           </p>
 
           {result.ok ? (
@@ -122,7 +145,7 @@ export default function PipelineTestPage() {
                   {Object.entries(result.receipt.timings).map(([stage, ms]) => (
                     <tr key={stage}>
                       <td className="pr-6 text-neutral-500">{stage}</td>
-                      <td>{Math.round(ms)} ms</td>
+                      <td className="text-right">{Math.round(ms)} ms</td>
                     </tr>
                   ))}
                 </tbody>
@@ -131,13 +154,9 @@ export default function PipelineTestPage() {
                 <Block title="What the cloud saw (anonymized)" tone="cloud">
                   {result.cloudView.anonymizedText}
                 </Block>
-                <Block title="Raw cloud answer" tone="cloud">
-                  {result.cloudView.cloudAnswer}
-                </Block>
+                <MarkdownBlock title="Raw cloud answer" tone="cloud" text={result.cloudView.cloudAnswer} />
               </div>
-              <Block title="Restored answer (on this device)" tone="local">
-                {result.answer}
-              </Block>
+              <MarkdownBlock title="Restored answer (on this device)" tone="local" text={result.answer} />
               <Block title="Receipt (written to Firestore)">{JSON.stringify(result.receipt, null, 2)}</Block>
             </>
           ) : (
