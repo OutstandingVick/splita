@@ -9,3 +9,4 @@ export { IndexedDBVault, VAULT_DB } from "./indexeddb-vault.js";
 export { FirestoreReceipts, ensureAnonymousUser } from "./firestore-receipts.js";
 export { assertSafeReceipt, ReceiptSafetyError, RECEIPT_FIELDS } from "./receipt-safety.js";
 export { OnDeviceQueue, queued } from "./on-device-queue.js";
+export { QuickExplainer, createExplainModel, explainSubject, SensitiveTermError, EXPLAIN_SYSTEM_INSTRUCTION, type Explanation, type ExplainModel } from "./quick-explain.js";

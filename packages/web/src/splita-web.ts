@@ -17,6 +17,7 @@ import { IndexedDBVault } from "./indexeddb-vault.js";
 import type { NanoDetector, NanoDetectorOptions, NanoRun } from "./nano-detector.js";
 import { createNanoDetector, createNanoModel, warmUpNano } from "./nano-model.js";
 import { OnDeviceQueue, queued } from "./on-device-queue.js";
+import { createExplainModel, type Explanation, QuickExplainer } from "./quick-explain.js";
 
 export interface SplitaWebOptions {
   ai: AI;
@@ -43,6 +44,8 @@ export type SplitaRunResult = SplitaResult & {
 export interface SplitaWeb {
   run(input: SplitaRunInput): Promise<SplitaRunResult>;
   warmUpNano(): Promise<DetectorStatus>;
+  /** Quick explain (PREFER_ON_DEVICE). Refuses text containing a known identity from this workspace. */
+  explain(workspaceId: string, term: string): Promise<Explanation>;
   /** Anonymous sign-in; call on app start. Resolves to the uid. */
   signIn(): Promise<string>;
   readonly vault: IndexedDBVault;
@@ -63,6 +66,7 @@ export function createSplitaWeb(opts: SplitaWebOptions): SplitaWeb {
   const onDevice = new OnDeviceQueue();
   const nano: NanoDetector | undefined =
     opts.nano === false ? undefined : createNanoDetector(queued(createNanoModel(opts.ai), onDevice), opts.nano);
+  const explainer = new QuickExplainer(queued(createExplainModel(opts.ai), onDevice));
   const detector = new CompositeDetector(new RulesDetector(), nano);
   const vault = new IndexedDBVault();
 
@@ -87,6 +91,10 @@ export function createSplitaWeb(opts: SplitaWebOptions): SplitaWeb {
   return {
     vault,
     signIn,
+    async explain(workspaceId, term) {
+      const known = (await vault.list(workspaceId)).flatMap((e) => e.aliases);
+      return explainer.explain(term, known);
+    },
     get nanoStatus() {
       return nano?.status ?? "unavailable";
     },
