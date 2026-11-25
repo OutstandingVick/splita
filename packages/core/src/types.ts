@@ -34,3 +34,44 @@ export interface Entity {
   aliases: string[];
   placeholder: string;
 }
+
+/** placeholder → entity, scoped to one workspace. */
+export type Mapping = Record<string, Entity>;
+
+export interface PseudonymizeResult {
+  anonymizedText: string;
+  mapping: Mapping;
+  spans: Span[];
+}
+
+/** Mirrors Firebase AI Logic's InferenceSource values without importing Firebase. */
+export type InferenceSource = "on_device" | "in_cloud";
+
+export interface ReasonerResult {
+  text: string;
+  source: InferenceSource;
+  latencyMs: number;
+}
+
+export type Stage = "detect" | "resolve" | "pseudonymize" | "reason" | "restore" | "receipt";
+
+export type StageTimings = Record<Exclude<Stage, "receipt">, number>;
+
+/** Everything in a receipt except its own hash. */
+export interface ReceiptBody {
+  id: string;
+  timestamp: string;
+  workspaceId: string;
+  /** sha256 of exactly the text sent to the reasoner. */
+  payloadHash: string;
+  entityCounts: Partial<Record<EntityType, number>>;
+  detectorSources: DetectorSource[];
+  inferenceSource: InferenceSource;
+  timings: StageTimings;
+  prevReceiptHash: string | null;
+}
+
+export interface Receipt extends ReceiptBody {
+  /** sha256 of the canonical JSON of the body. Next receipt's prevReceiptHash. */
+  hash: string;
+}
