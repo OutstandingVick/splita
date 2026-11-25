@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectNairaAmounts } from "./money.js";
+import { detectDollarAmounts, detectNairaAmounts } from "./money.js";
 
 const texts = (t: string) => detectNairaAmounts(t).map((s) => s.text);
 
@@ -17,5 +17,17 @@ describe("detectNairaAmounts", () => {
 
   it("ignores N inside words and plain numbers", () => {
     expect(texts("NIN2024 and 5000 units")).toEqual([]);
+  });
+});
+
+describe("detectDollarAmounts", () => {
+  const usd = (t: string) => detectDollarAmounts(t).map((s) => s.text);
+
+  it.each(["$1,200", "US$5k", "USD 250,000", "300 dollars", "$2.5m"])("matches %s", (a) => {
+    expect(usd(`valued at ${a} total`)).toEqual([a]);
+  });
+
+  it("ignores naira", () => {
+    expect(usd("₦400,000")).toEqual([]);
   });
 });
