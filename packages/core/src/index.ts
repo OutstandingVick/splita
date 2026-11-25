@@ -19,3 +19,4 @@ export { CompositeDetector, type DetectionMode, type DetectorStatus, type Option
 export { detectAddresses, detectPlaces, locationKind, type LocationKind } from "./rules/location.js";
 export { PUBLIC_TERMS, dropPublicTerms, findPublicTerms, isPublicTerm } from "./public-terms.js";
 export { previewSplita, type PreviewResult } from "./preview.js";
+export { verifyChains, verifyReceipt, type ChainCheck, type ChainProblem, type ReceiptCheck } from "./verify.js";
