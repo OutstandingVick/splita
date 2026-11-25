@@ -1,7 +1,7 @@
 /** Client NDA between two Nigerian companies, with named signatories. */
 export const clientNda = `MUTUAL NON-DISCLOSURE AGREEMENT
 
-This Agreement is made on 5 November 2026 between Ikenga Fintech Ltd (the Client), represented by Dr. Halima Abubakar, and Delta Creek Analytics Limited, represented by Mr. Tamunosiki Briggs.
+This Agreement is made on 5 November 2026 between Ikenga Fintech Ltd (the Client), represented by Dr. Halima Abubakar, and Delta Creek Analytics Limited of 7 Mbiama Road, Yenagoa, Bayelsa State, represented by Mr. Tamunosiki Briggs.
 
 1. Halima Abubakar shall share the Client's customer-risk models solely to evaluate a data partnership valued at USD 250,000.
 2. Mr. Briggs and his staff shall keep all Confidential Information secret for 3 years.

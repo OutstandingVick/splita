@@ -18,7 +18,10 @@ describe("fixture: client NDA", () => {
       "legal@ikengafintech.com.ng": "EMAIL_1",
       "+2348051234567": "PHONE_1",
       "07061234567": "PHONE_2",
+      "7 Mbiama Road": "ADDRESS_1",
+      Yenagoa: "CITY_NG_1",
+      "Bayelsa State": "STATE_NG_1",
     },
-    secrets: ["Ikenga", "Delta Creek", "Abubakar", "Briggs", "Alagoa", "250,000"],
+    secrets: ["Ikenga", "Delta Creek", "Abubakar", "Briggs", "Alagoa", "250,000", "Mbiama", "Yenagoa", "Bayelsa"],
   });
 });

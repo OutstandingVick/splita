@@ -20,7 +20,9 @@ describe("fixture: tenancy letter", () => {
       "2034567891": "ACCOUNT_1",
       "0809 876 5432": "PHONE_1",
       "tenancy@ezeproperties.ng": "EMAIL_1",
+      "Flat 3, Plot 5, Admiralty Way": "ADDRESS_1",
+      Lekki: "CITY_NG_1",
     },
-    secrets: ["Okafor", "Emeka", "Eze", "Aisha", "Okonkwo", "5432"],
+    secrets: ["Okafor", "Emeka", "Eze", "Aisha", "Okonkwo", "5432", "Admiralty", "Lekki"],
   });
 });

@@ -20,8 +20,11 @@ describe("fixture: employment contract dispute", () => {
       "+234 803 123 4567": "PHONE_1",
       "adebayo.ogunleye@gmail.com": "EMAIL_1",
       "0123456789": "ACCOUNT_1",
+      "12 Adeola Odeku Street": "ADDRESS_1",
+      "Victoria Island": "CITY_NG_1",
+      Lagos: "CITY_NG_2",
     },
-    secrets: ["Ogunleye", "Zenith", "Nwosu", "Funmilayo", "1988", "4567"],
+    secrets: ["Ogunleye", "Zenith", "Nwosu", "Funmilayo", "1988", "4567", "Adeola Odeku", "Victoria Island", "Lagos"],
   });
 
   it("anonymized output matches the reviewed snapshot", async () => {
