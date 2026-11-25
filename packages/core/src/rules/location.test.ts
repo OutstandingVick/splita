@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectPlaces, isStateName } from "./location.js";
+import { detectAddresses, detectPlaces, isStateName, locationKind } from "./location.js";
 
 const texts = (t: string) => detectPlaces(t).map((s) => s.text);
 
@@ -29,5 +29,35 @@ describe("detectPlaces", () => {
     expect(isStateName("Bayelsa State")).toBe(true);
     expect(isStateName("Delta")).toBe(true);
     expect(isStateName("Kano")).toBe(false);
+  });
+});
+
+describe("detectAddresses", () => {
+  const addr = (t: string) => detectAddresses(t).map((s) => s.text);
+
+  it.each([
+    ["lives at 12 Adeola Odeku Street, Victoria Island", "12 Adeola Odeku Street"],
+    ["the flat at Flat 3, Plot 5, Admiralty Way, Lekki", "Flat 3, Plot 5, Admiralty Way"],
+    ["office: No. 7 Mbiama Road, Yenagoa", "No. 7 Mbiama Road"],
+    ["Plot 14B is vacant", "Plot 14B"],
+    ["at 3 Bourdillon Cres. Ikoyi", "3 Bourdillon Cres."],
+  ])("%s", (t, want) => {
+    expect(addr(t)).toEqual([want]);
+  });
+
+  it("ignores numbers that are not addresses", () => {
+    expect(addr("within 30 days, on 5 November 2026 between parties")).toEqual([]);
+  });
+});
+
+describe("locationKind", () => {
+  it.each([
+    ["12 Adeola Odeku Street", "ADDRESS"],
+    ["Plot 5", "ADDRESS"],
+    ["Bayelsa State", "STATE_NG"],
+    ["FCT", "STATE_NG"],
+    ["Lekki", "CITY_NG"],
+  ])("%s → %s", (t, k) => {
+    expect(locationKind(t)).toBe(k);
   });
 });

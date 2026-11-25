@@ -41,3 +41,26 @@ export type LocationKind = "STATE_NG" | "CITY_NG" | "ADDRESS";
 export function isStateName(text: string): boolean {
   return / State$/.test(text) || STATE_SET.has(text);
 }
+
+const STREET = "(?:(?:Street|Road|Avenue|Close|Crescent|Way|Drive|Lane|Estate|Boulevard|Expressway)\\b|(?:St|Rd|Ave|Cres)\\.)";
+const WORDS = "(?:[A-Z][A-Za-z'-]*[ ]+){1,4}";
+const FLAT = "(?:Flat[ ]+\\d+[A-Za-z]?,[ ]*)?";
+const ADDRESS = new RegExp(
+  `\\b${FLAT}(?:(?:No\\.?[ ]*)?\\d{1,4}[A-Za-z]?,?[ ]+${WORDS}${STREET}|Plot[ ]+\\d+[A-Za-z]?(?:,?[ ]+${WORDS}${STREET})?)`,
+  "g",
+);
+const ADDRESS_START = /^(?:Flat|Plot|No\.?|\d)/;
+
+/** Street addresses: "12 Adeola Odeku Street", "Plot 5, Admiralty Way", "Flat 3, Plot 5". */
+export const detectAddresses: Rule = (text) => {
+  const out: Span[] = [];
+  for (const m of text.matchAll(ADDRESS)) {
+    if (m.index !== undefined) out.push(makeSpan(text, m.index, m.index + m[0].length, "LOCATION", 0.9));
+  }
+  return out;
+};
+
+export function locationKind(text: string): LocationKind {
+  if (ADDRESS_START.test(text)) return "ADDRESS";
+  return isStateName(text) ? "STATE_NG" : "CITY_NG";
+}
