@@ -1,23 +1,16 @@
 import type { DetectorStatus, OptionalDetector, Span } from "@splita/core";
 import type { Chunk } from "./nano-parse.js";
-import { chunkText, locateEntities, NANO_RESPONSE_SCHEMA, parseNanoEntities } from "./nano-parse.js";
-import { mapLimit } from "./concurrency.js";
-import type { PromptOptions } from "./nano-session.js";
+import { chunkText, locateEntities, parseNanoEntities } from "./nano-parse.js";
 
-/** The slice of NanoSession the detector needs (mockable in tests). */
-export interface NanoPrompter {
-  readonly warm: boolean;
-  availability(): Promise<string>;
-  ready(): Promise<unknown>;
-  prompt(input: string, options?: PromptOptions): Promise<string>;
+/** The slice of Firebase AI Logic's GenerativeModel the detector needs (mockable in tests). */
+export interface TextModel {
+  generateContent(prompt: string): Promise<{ response: { text(): string } }>;
 }
 
 export interface NanoDetectorOptions {
   /** Budget for one whole detect() or warmUp(). */
   timeoutMs?: number;
   chunkChars?: number;
-  /** Chunks prompted at once (each on its own clone of the warm session). */
-  concurrency?: number;
   now?: () => number;
 }
 
@@ -58,24 +51,28 @@ export function namesInChunk(chunk: Chunk, known: readonly Span[]): string[] {
   return [...new Set(names)];
 }
 
-async function withTimeout<T>(work: (signal: AbortSignal) => Promise<T>, ms: number): Promise<T> {
-  const controller = new AbortController();
+const errorText = (e: unknown) => (e instanceof Error ? `${e.name}: ${e.message}` : "unknown error");
+
+/** Firebase AI Logic throws AIError code `api-not-enabled` when Chrome has no usable on-device model. */
+export function isOnDeviceUnavailable(e: unknown): boolean {
+  const code = (e as { code?: unknown } | null)?.code;
+  return typeof code === "string" && code.includes("api-not-enabled");
+}
+
+async function withTimeout<T>(work: () => Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => {
-      controller.abort();
-      reject(new NanoTimeoutError(`Nano timed out after ${ms}ms`));
-    }, ms);
+    timer = setTimeout(() => reject(new NanoTimeoutError(`Nano timed out after ${ms}ms`)), ms);
   });
   try {
-    return await Promise.race([work(controller.signal), timeout]);
+    return await Promise.race([work(), timeout]);
   } finally {
     clearTimeout(timer);
   }
 }
 
 /**
- * Gemini Nano (on-device) entity detector on one warm Prompt API session.
+ * Gemini Nano entity detector via Firebase AI Logic (hybrid model, InferenceMode.ONLY_ON_DEVICE).
  * Best-effort: never throws; failures return [] and set `status`.
  */
 export class NanoDetector implements OptionalDetector {
@@ -83,17 +80,17 @@ export class NanoDetector implements OptionalDetector {
   private _lastError: string | undefined;
   private readonly timeoutMs: number;
   private readonly chunkChars: number;
-  private readonly concurrency: number;
   private readonly now: () => number;
   private _lastRun: NanoRun | undefined;
+  /** True once an on-device call has succeeded, so the model is loaded. */
+  private warm = false;
 
   constructor(
-    private readonly session: NanoPrompter,
+    private readonly model: TextModel,
     opts: NanoDetectorOptions = {},
   ) {
     this.timeoutMs = opts.timeoutMs ?? 20_000;
     this.chunkChars = opts.chunkChars ?? 2_000;
-    this.concurrency = opts.concurrency ?? 2;
     this.now = opts.now ?? (() => performance.now());
   }
 
@@ -111,44 +108,42 @@ export class NanoDetector implements OptionalDetector {
   }
 
   async detect(text: string, known: readonly Span[] = []): Promise<Span[]> {
-    const warm = this.session.warm;
+    const warm = this.warm;
     const t0 = this.now();
     const chunks = chunkText(text, this.chunkChars);
-    const spans = await this.guard(async (signal) => {
-      const perChunk = await mapLimit(chunks, this.concurrency, async (chunk) => {
-        const raw = await this.session.prompt(nanoPrompt(chunk.text, namesInChunk(chunk, known)), { responseConstraint: NANO_RESPONSE_SCHEMA, signal });
-        return locateEntities(chunk, parseNanoEntities(raw));
-      });
-      return perChunk.flat();
+    const spans = await this.guard(async () => {
+      const out: Span[] = [];
+      for (const chunk of chunks) {
+        const res = await this.model.generateContent(nanoPrompt(chunk.text, namesInChunk(chunk, known)));
+        out.push(...locateEntities(chunk, parseNanoEntities(res.response.text())));
+      }
+      return out;
     }, []);
     // Only a pass that actually ran is worth timing; a skipped or failed one has no lastRun.
     this._lastRun = this._status === "ready" ? { warm, ms: Math.round(this.now() - t0), chunks: chunks.length } : undefined;
     return spans;
   }
 
-  /** Creates the warm base session on page load so the first real detect skips session setup. */
+  /** One trivial ONLY_ON_DEVICE call so the model is loaded before the first real detect. */
   async warmUp(): Promise<DetectorStatus> {
     await this.guard(async () => {
-      await this.session.ready();
+      await this.model.generateContent(nanoPrompt("Warm-up."));
       return true;
     }, false);
     return this._status;
   }
 
-  private async guard<T>(work: (signal: AbortSignal) => Promise<T>, fallback: T): Promise<T> {
+  private async guard<T>(work: () => Promise<T>, fallback: T): Promise<T> {
     try {
-      const availability = await this.session.availability();
-      if (availability !== "available") {
-        this.fail("unavailable", `LanguageModel.availability() = ${availability}`);
-        return fallback;
-      }
       const out = await withTimeout(work, this.timeoutMs);
       this._status = "ready";
+      this.warm = true;
       this._lastError = undefined;
       return out;
     } catch (e) {
       if (e instanceof NanoTimeoutError) this.fail("timeout", e.message);
-      else this.fail("error", e instanceof Error ? `${e.name}: ${e.message}` : "unknown error");
+      else if (isOnDeviceUnavailable(e)) this.fail("unavailable", errorText(e));
+      else this.fail("error", errorText(e));
       return fallback;
     }
   }

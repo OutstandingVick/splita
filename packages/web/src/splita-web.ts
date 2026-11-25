@@ -15,7 +15,7 @@ import { ensureAnonymousUser, FirestoreReceipts } from "./firestore-receipts.js"
 import { WebCryptoHasher } from "./hasher.js";
 import { IndexedDBVault } from "./indexeddb-vault.js";
 import type { NanoDetector, NanoDetectorOptions, NanoRun } from "./nano-detector.js";
-import { createNanoDetector, warmUpNano } from "./nano-model.js";
+import { createNanoDetector, createNanoModel, warmUpNano } from "./nano-model.js";
 
 export interface SplitaWebOptions {
   ai: AI;
@@ -58,7 +58,7 @@ export function composePrompt(question: string | undefined, text: string): strin
 
 /** Wires the web adapters into the core pipeline. */
 export function createSplitaWeb(opts: SplitaWebOptions): SplitaWeb {
-  const nano: NanoDetector | undefined = opts.nano === false ? undefined : createNanoDetector(opts.nano);
+  const nano: NanoDetector | undefined = opts.nano === false ? undefined : createNanoDetector(createNanoModel(opts.ai), opts.nano);
   const detector = new CompositeDetector(new RulesDetector(), nano);
   const vault = new IndexedDBVault();
 
