@@ -1,0 +1,44 @@
+import type { Receipt, ReceiptPort } from "@splita/core";
+import { type Auth, signInAnonymously } from "firebase/auth";
+import { collection, doc, type Firestore, getDocs, limit, orderBy, query, setDoc, where } from "firebase/firestore";
+import { assertSafeReceipt, RECEIPT_FIELDS } from "./receipt-safety.js";
+
+/** Signs in anonymously if needed; resolves to the uid receipts are stored under. */
+export async function ensureAnonymousUser(auth: Auth): Promise<string> {
+  if (auth.currentUser) return auth.currentUser.uid;
+  return (await signInAnonymously(auth)).user.uid;
+}
+
+/** Picks exactly the receipt fields back out of a Firestore document (drops anything else). */
+function toReceipt(data: Record<string, unknown>): Receipt {
+  const out: Record<string, unknown> = {};
+  for (const k of RECEIPT_FIELDS) out[k] = data[k];
+  return out as unknown as Receipt; // shape validated by assertSafeReceipt on write; rules enforce it server-side
+}
+
+/** Hash-chained receipts at users/{uid}/receipts/{receiptId}. Create-only; rules deny update/delete. */
+export class FirestoreReceipts implements ReceiptPort {
+  constructor(
+    private readonly db: Firestore,
+    private readonly uid: () => Promise<string>,
+  ) {}
+
+  async append(receipt: Receipt): Promise<void> {
+    assertSafeReceipt(receipt);
+    const uid = await this.uid();
+    await setDoc(doc(this.db, "users", uid, "receipts", receipt.id), receipt);
+  }
+
+  async head(workspaceId: string): Promise<Receipt | undefined> {
+    const uid = await this.uid();
+    const q = query(
+      collection(this.db, "users", uid, "receipts"),
+      where("workspaceId", "==", workspaceId),
+      orderBy("timestamp", "desc"),
+      limit(1),
+    );
+    const snap = await getDocs(q);
+    const first = snap.docs[0];
+    return first ? toReceipt(first.data()) : undefined;
+  }
+}
