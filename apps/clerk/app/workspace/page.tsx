@@ -11,6 +11,7 @@ import { MatterList } from "@/components/workspace/matter-list";
 import { ReceiptCard } from "@/components/workspace/receipt-card";
 import { VerifyButton } from "@/components/workspace/verify-button";
 import { HybridLine } from "@/components/workspace/hybrid-line";
+import { StreamingAnswer } from "@/components/workspace/streaming-answer";
 import { PipelineStrip } from "@/components/workspace/pipeline-strip";
 import { SplitView } from "@/components/workspace/split-view";
 import { DEMO_MATTER_ID, demoMatter } from "@/lib/matters";
@@ -105,7 +106,8 @@ function Workspace() {
             {outcome?.kind === "answer" && outcome.result.ok && (
               <HybridLine mode={outcome.result.mode} inferenceSource={outcome.result.receipt.inferenceSource} cloudModel={outcome.result.receipt.cloudModel} />
             )}
-            {state.busy && (
+            {state.busy && state.stream && <StreamingAnswer cloud={state.stream.cloud} restored={state.stream.restored} />}
+            {state.busy && !state.stream && (
               <section aria-hidden className="rounded-xl border border-stone-200 bg-white p-6">
                 <div className="h-4 w-40 animate-pulse rounded bg-stone-100" />
                 <div className="mt-5 space-y-2.5">

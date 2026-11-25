@@ -15,7 +15,11 @@ export interface AskState {
   busy: boolean;
   progress: Progress;
   outcome: Outcome | null;
+  /** While the cloud answer streams: anonymized text so far, and its on-device restoration. */
+  stream: { cloud: string; restored: string } | null;
 }
+
+const EMPTY: AskState = { busy: false, progress: initialProgress(), outcome: null, stream: null };
 
 /** Runs the private pipeline for one matter, streaming stage progress. Offline: preview only. */
 export function useAsk() {
@@ -23,7 +27,7 @@ export function useAsk() {
   const runIds = useRef(new Map<string, number>());
 
   const patch = useCallback((matterId: string, f: (s: AskState) => AskState) => {
-    setByMatter((all) => ({ ...all, [matterId]: f(all[matterId] ?? { busy: false, progress: initialProgress(), outcome: null }) }));
+    setByMatter((all) => ({ ...all, [matterId]: f(all[matterId] ?? EMPTY) }));
   }, []);
 
   const ask = useCallback(
@@ -31,12 +35,12 @@ export function useAsk() {
     async (matterId: string, text: string, question: string, online: boolean, slot: string = matterId) => {
       const id = (runIds.current.get(slot) ?? 0) + 1;
       runIds.current.set(slot, id);
-      patch(slot, () => ({ busy: true, progress: initialProgress(), outcome: null }));
+      patch(slot, () => ({ ...EMPTY, busy: true, progress: initialProgress() }));
       try {
         const splita = getSplita();
         if (!online) {
           const preview = await splita.preview({ workspaceId: matterId, text, question });
-          patch(slot, () => ({ busy: false, progress: previewProgress(), outcome: { kind: "preview", preview } }));
+          patch(slot, () => ({ ...EMPTY, progress: previewProgress(), outcome: { kind: "preview", preview } }));
           return;
         }
         const result = await splita.run({
@@ -45,18 +49,19 @@ export function useAsk() {
           question,
           onStage: (e) => patch(slot, (s) => ({ ...s, progress: applyStage(s.progress, e) })),
           onCloudAttempt: (a) => patch(slot, (s) => ({ ...s, progress: applyCloudAttempt(s.progress, a) })),
+          onAnswer: (partial) => patch(slot, (s) => ({ ...s, stream: partial.cloud ? partial : null })),
         });
         if (id !== runIds.current.get(slot)) return;
-        patch(slot, (s) => ({ busy: false, progress: markSkipped(s.progress), outcome: { kind: "answer", result } }));
+        patch(slot, (s) => ({ busy: false, progress: markSkipped(s.progress), outcome: { kind: "answer", result }, stream: null }));
       } catch (e) {
-        patch(slot, (s) => ({ ...s, busy: false, outcome: { kind: "setup-error", message: e instanceof Error ? e.message : String(e) } }));
+        patch(slot, (s) => ({ ...s, busy: false, stream: null, outcome: { kind: "setup-error", message: e instanceof Error ? e.message : String(e) } }));
       }
     },
     [patch],
   );
 
   const stateFor = (matterId: string | undefined): AskState =>
-    (matterId && byMatter[matterId]) || { busy: false, progress: initialProgress(), outcome: null };
+    (matterId && byMatter[matterId]) || EMPTY;
 
   return { ask, stateFor };
 }
