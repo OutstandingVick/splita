@@ -169,6 +169,11 @@ export default function PipelineTestPage() {
 
           {result.ok ? (
             <>
+              <p className="font-mono text-sm" data-testid="cloud-line">
+                cloud:{" "}
+                {result.receipt.cloudAttempts > 1 ? `retried ${result.receipt.cloudAttempts - 1}x` : "first try"}, model{" "}
+                <strong>{result.receipt.cloudModel}</strong>
+              </p>
               <table className="text-left font-mono text-xs">
                 <tbody>
                   {Object.entries(result.receipt.timings).map(([stage, ms]) => (
