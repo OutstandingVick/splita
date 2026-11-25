@@ -44,6 +44,8 @@ export interface SplitaWeb {
   signIn(): Promise<string>;
   readonly vault: IndexedDBVault;
   readonly nanoStatus: DetectorStatus;
+  /** Why Nano last failed (never contains document text). */
+  readonly nanoError: string | undefined;
 }
 
 /** The question is pseudonymized together with the document, so names in it never leave either. */
@@ -81,6 +83,9 @@ export function createSplitaWeb(opts: SplitaWebOptions): SplitaWeb {
     signIn,
     get nanoStatus() {
       return nano?.status ?? "unavailable";
+    },
+    get nanoError() {
+      return nano?.lastError;
     },
     warmUpNano: () => (nano ? warmUpNano(nano) : Promise.resolve<DetectorStatus>("unavailable")),
     async run({ workspaceId, text, question }) {

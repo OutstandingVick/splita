@@ -31,7 +31,10 @@ export default function PipelineTestPage() {
   useEffect(() => {
     try {
       const splita = getSplita();
-      void splita.warmUpNano().then(setWarmUp);
+      void splita.warmUpNano().then((status) => {
+        setWarmUp(status);
+        if (status !== "ready") console.warn(`[splita] Nano warm-up ${status}: ${splita.nanoError ?? "no detail"}`);
+      });
       splita.signIn().then(setUid, (e: unknown) => setSetupError(`Anonymous sign-in failed: ${String(e)}`));
     } catch (e) {
       setSetupError(String(e));
