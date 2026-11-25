@@ -35,7 +35,7 @@ export function ExtractionProbe({ state, onRun, online }: { state: AskState; onR
         <div className="grid gap-4 border-t border-stone-100 px-5 py-4 md:grid-cols-[minmax(0,1fr)_16rem]">
           <div className="min-w-0">
             <p className="mb-1 text-xs font-medium text-stone-500">Cloud&apos;s raw reply ({out.result.receipt.cloudModel})</p>
-            <blockquote data-testid="probe-reply" className="whitespace-pre-wrap rounded-lg bg-stone-50 p-3 font-mono text-[12.5px] leading-relaxed text-stone-800">
+            <blockquote data-testid="probe-reply" className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg bg-stone-50 p-3 font-mono text-[12.5px] leading-relaxed text-stone-800">
               {out.result.cloudView.cloudAnswer}
             </blockquote>
           </div>
