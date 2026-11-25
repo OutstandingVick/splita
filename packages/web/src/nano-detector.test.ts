@@ -46,7 +46,7 @@ describe("NanoDetector", () => {
       { start: 0, end: 20, text: "Mr. Adebayo Ogunleye", type: "PERSON", confidence: 1, source: "rules" },
       { start: 41, end: 46, text: "Lagos", type: "LOCATION", confidence: 1, source: "rules" },
     ]);
-    expect(m.prompts[0]).toContain('ALREADY FOUND: ["Mr. Adebayo Ogunleye"]');
+    expect(m.prompts[0]).toContain('SKIP: ["Mr. Adebayo Ogunleye"]');
   });
 
   it("skips the pass when rules already cover every name candidate", async () => {
@@ -159,7 +159,9 @@ describe("NanoDetector.warmUp", () => {
 });
 
 describe("nanoPrompt", () => {
-  it("asks only for PERSON and ORG", () => {
-    expect(nanoPrompt("x")).toContain("PERSON name and ORG");
+  it("is minimal", () => {
+    expect(nanoPrompt("Paid Kunle.", ["Zenith Bank Plc"])).toBe(
+      'People and organisations named in TEXT, excluding SKIP. JSON only.\nSKIP: ["Zenith Bank Plc"]\nTEXT:\nPaid Kunle.',
+    );
   });
 });

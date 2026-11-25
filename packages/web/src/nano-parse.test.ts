@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chunkText, locateEntities, parseNanoEntities } from "./nano-parse.js";
+import { NANO_RESPONSE_SCHEMA, chunkText, locateEntities, parseNanoEntities } from "./nano-parse.js";
 
 describe("chunkText", () => {
   it("keeps short text as one chunk", () => {
@@ -54,5 +54,12 @@ describe("locateEntities", () => {
 
   it("ignores entities not present in the text (hallucinations)", () => {
     expect(locateEntities({ text: "hello", offset: 0 }, [{ text: "Tinubu", type: "PERSON" }])).toEqual([]);
+  });
+});
+
+describe("NANO_RESPONSE_SCHEMA", () => {
+  it("allows only PERSON|ORG and bounds the reply size", () => {
+    expect(NANO_RESPONSE_SCHEMA.items.properties.type.enum).toEqual(["PERSON", "ORG"]);
+    expect(NANO_RESPONSE_SCHEMA.maxItems * NANO_RESPONSE_SCHEMA.items.properties.text.maxLength).toBeLessThanOrEqual(1000);
   });
 });

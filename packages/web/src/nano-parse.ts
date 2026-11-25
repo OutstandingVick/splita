@@ -9,13 +9,21 @@ export interface NanoEntity {
 
 const NANO_TYPES: readonly NanoEntityType[] = ["PERSON", "ORG"];
 
-/** JSON Schema passed to Chrome's Prompt API as `responseConstraint`. */
+/** Upper bounds that keep Nano's reply short (the on-device API has no maxOutputTokens). */
+export const NANO_MAX_ITEMS = 16;
+export const NANO_MAX_NAME_CHARS = 60;
+
+/**
+ * JSON Schema passed as `responseConstraint`: [{text, type}] with PERSON|ORG only. The array and
+ * string bounds cap the output at roughly 256 tokens, in place of maxOutputTokens.
+ */
 export const NANO_RESPONSE_SCHEMA = {
   type: "array",
+  maxItems: NANO_MAX_ITEMS,
   items: {
     type: "object",
     properties: {
-      text: { type: "string" },
+      text: { type: "string", maxLength: NANO_MAX_NAME_CHARS },
       type: { type: "string", enum: NANO_TYPES },
     },
     required: ["text", "type"],

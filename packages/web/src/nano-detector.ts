@@ -30,23 +30,9 @@ export class NanoTimeoutError extends Error {
   override name = "NanoTimeoutError";
 }
 
-/**
- * Asks only for PERSON and ORG names, and lists the names rules already found in this chunk
- * so Nano spends its tokens on what rules missed.
- */
-export function nanoPrompt(chunk: string, alreadyFound: readonly string[] = []): string {
-  return [
-    "List every PERSON name and ORG (company, bank, firm) name in the text that is NOT in the already-found list.",
-    "Copy each exactly as it appears. Skip courts, government agencies, laws, role words (Employer, Tenant) and anything in the list.",
-    'Return only a JSON array like [{"text":"...","type":"PERSON"}]. Return [] if there are none.',
-    "",
-    `ALREADY FOUND: ${alreadyFound.length ? JSON.stringify(alreadyFound) : "[]"}`,
-    "",
-    "TEXT:",
-    "<<<",
-    chunk,
-    ">>>",
-  ].join("\n");
+/** Minimal instructions: fewer input tokens per sequential on-device call. */
+export function nanoPrompt(text: string, skip: readonly string[] = []): string {
+  return `People and organisations named in TEXT, excluding SKIP. JSON only.\nSKIP: ${JSON.stringify(skip)}\nTEXT:\n${text}`;
 }
 
 /** Distinct PERSON/ORG texts from `known` that fall inside the chunk. */
