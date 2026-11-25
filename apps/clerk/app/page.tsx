@@ -15,17 +15,17 @@ const STEPS = [
     n: "2",
     where: "In the cloud",
     title: "Reason on stand-ins",
-    body: "Gemini reads only placeholders, and every request is checked for leaks first.",
-    from: "EMPLOYEE_1 is owed",
-    to: "AMOUNT_NGN_LARGE_1",
+    body: "Gemini reads only stand-ins. Every request is checked for leaks before it leaves.",
+    from: "Zenith Bank Plc",
+    to: "EMPLOYER_1",
   },
   {
     n: "3",
     where: "On your device",
     title: "Restore",
     body: "Real values come back from the local vault. A receipt proves what was sent.",
-    from: "AMOUNT_NGN_LARGE_1",
-    to: "N12.5m",
+    from: "EMPLOYER_1",
+    to: "Zenith Bank Plc",
   },
 ] as const;
 
