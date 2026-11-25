@@ -2,7 +2,7 @@ import type { InferenceSource, ReasonerPort, ReasonerResult, ReasonOptions } fro
 import { type AI, getGenerativeModel, InferenceMode, ThinkingLevel } from "firebase/ai";
 
 export const CLOUD_MODEL = "gemini-3.5-flash";
-/** Caps answer length (and cost). Thinking is kept low so it doesn't eat into this budget. */
+/** Caps answer length (and cost). Thinking tokens count toward it, so thinking is set to MINIMAL. */
 export const CLOUD_MAX_OUTPUT_TOKENS = 800;
 /**
  * Second cloud model, tried once the primary has exhausted its retries. A different model from the
@@ -246,7 +246,7 @@ export function createCloudModel(ai: AI, model: string = CLOUD_MODEL): CloudMode
     inCloudParams: {
       model,
       systemInstruction: REASONER_SYSTEM_INSTRUCTION,
-      generationConfig: { maxOutputTokens: CLOUD_MAX_OUTPUT_TOKENS, thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } },
+      generationConfig: { maxOutputTokens: CLOUD_MAX_OUTPUT_TOKENS, thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL } },
     },
   });
 }
