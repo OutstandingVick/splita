@@ -6,11 +6,12 @@ import {
   runSplita,
   type SplitaDeps,
   type SplitaResult,
+  type StageEvent,
 } from "@splita/core";
 import type { AI } from "firebase/ai";
 import type { Auth } from "firebase/auth";
 import type { Firestore } from "firebase/firestore";
-import { CLOUD_MODEL, createCloudModel, FALLBACK_CLOUD_MODEL, FirebaseReasoner } from "./firebase-reasoner.js";
+import { CLOUD_MODEL, type CloudAttempt, createCloudModel, FALLBACK_CLOUD_MODEL, FirebaseReasoner } from "./firebase-reasoner.js";
 import { ensureAnonymousUser, FirestoreReceipts } from "./firestore-receipts.js";
 import { WebCryptoHasher } from "./hasher.js";
 import { IndexedDBVault } from "./indexeddb-vault.js";
@@ -35,6 +36,10 @@ export interface SplitaRunInput {
   workspaceId: string;
   text: string;
   question?: string;
+  /** Live stage progress (detect, pseudonymize, verify, reason, restore, receipt). */
+  onStage?: (event: StageEvent) => void;
+  /** Every cloud call: first try, retries (with reason) and the fallback. */
+  onCloudAttempt?: (attempt: CloudAttempt) => void;
 }
 
 export type SplitaRunResult = SplitaResult & {
@@ -85,13 +90,14 @@ export function createSplitaWeb(opts: SplitaWebOptions): SplitaWeb {
     return uidPromise;
   };
 
+  const reasoner = new FirebaseReasoner(createCloudModel(opts.ai, cloudModel), {
+      modelName: cloudModel,
+      ...(fallbackName ? { fallback: { name: fallbackName, model: createCloudModel(opts.ai, fallbackName) } } : {}),
+    });
   const deps: SplitaDeps = {
     detectors: [detector],
     vault,
-    reasoner: new FirebaseReasoner(createCloudModel(opts.ai, cloudModel), {
-      modelName: cloudModel,
-      ...(fallbackName ? { fallback: { name: fallbackName, model: createCloudModel(opts.ai, fallbackName) } } : {}),
-    }),
+    reasoner,
     receipts: new FirestoreReceipts(opts.firestore, signIn),
     hasher: new WebCryptoHasher(),
     now: () => performance.now(),
@@ -111,8 +117,11 @@ export function createSplitaWeb(opts: SplitaWebOptions): SplitaWeb {
       return nano?.lastError;
     },
     warmUpNano: () => (nano ? warmUpNano(nano) : Promise.resolve<DetectorStatus>("unavailable")),
-    async run({ workspaceId, text, question }) {
-      const result = await runSplita({ workspaceId, text: composePrompt(question, text) }, deps);
+    async run({ workspaceId, text, question, onStage, onCloudAttempt }) {
+      reasoner.setAttemptListener(onCloudAttempt);
+      const result = await runSplita({ workspaceId, text: composePrompt(question, text) }, deps, onStage ? { onStage } : {}).finally(() =>
+        reasoner.setAttemptListener(undefined),
+      );
       const nanoError = nano?.lastError;
       const nanoRun = nano?.lastRun;
       return {
